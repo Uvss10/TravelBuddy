@@ -1,5 +1,6 @@
 from backend.schemas.itinerary_schema import ItineraryRequest
 from backend.utils import call_llm
+from backend.services.budget_service import estimate_budget
 
 def generate_itinerary(request: ItineraryRequest):
     prompt = f"""
@@ -17,11 +18,13 @@ def generate_itinerary(request: ItineraryRequest):
     }}
     """
 
-    llm_output = call_llm(prompt)
+    ai_itinerary = call_llm(prompt)
+    budget_estimation = estimate_budget(request.days, request.budget)
 
     return {
         "destination": request.destination,
         "total_days": request.days,
-        "budget": request.budget,
-        "itinerary_ai_output": llm_output
+        "budget_category": request.budget,
+        "itinerary_ai_output": ai_itinerary,
+        "hotel_and_budget_estimation": budget_estimation
     }
