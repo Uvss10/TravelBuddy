@@ -1,0 +1,75 @@
+name: travel_buddy
+description: TravelBuddy AI - Smart travel planning with AI-powered itineraries and reel generation.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.1
+
+  # HTTP & Networking
+  http: ^1.2.0
+  dio: ^5.4.0
+  connectivity_plus: ^5.0.2
+
+  # Image Picking & Display
+  image_picker: ^1.0.7
+  file_picker: ^6.1.1          # for all-format picking (RAW, TIFF, etc.)
+  cached_network_image: ^3.3.1
+
+  # Video Player
+  video_player: ^2.8.3
+  chewie: ^1.7.4
+
+  # Storage
+  shared_preferences: ^2.2.2
+
+  # UI & Animations
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  lottie: ^3.0.0
+  smooth_page_indicator: ^1.1.0
+
+  # File Handling
+  path_provider: ^2.1.2
+  open_file: ^3.3.2
+
+  # Share
+  share_plus: ^7.2.2
+
+  # Notifications / Toast
+  fluttertoast: ^8.2.4
+
+  # Icons
+  cupertino_icons: ^1.0.6
+
+  # Internationalization
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700

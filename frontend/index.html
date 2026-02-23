@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelBuddy AI – Photo to Reel</title>
+    <meta name="description"
+        content="Drag your travel photos, get an AI-generated cinematic reel story and city-specific itinerary.">
+    <!-- Inter font: use system-ui stack so the app works 100% offline -->
+    <!-- To re-enable online font: uncomment the two lines below -->
+    <!-- <link rel="preconnect" href="https://fonts.googleapis.com"> -->
+    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"> -->
+    <link rel="stylesheet" href="style.css?v=2.0.2">
+</head>
+
+<body>
+
+
+
+    <!-- ══════════════════════════════════════════════════════════════ HEADER -->
+    <header class="site-header">
+        <div class="header-inner">
+            <div class="logo">✈️ TravelBuddy <em>AI</em></div>
+            <nav class="tab-nav" role="tablist">
+                <button class="tab-btn active" id="tabReelBtn" role="tab" aria-selected="true" data-tab="reel">
+                    🎬 Photo → Reel
+                </button>
+                <button class="tab-btn" id="tabPlanBtn" role="tab" aria-selected="false" data-tab="plan">
+                    🗺️ Trip Planner
+                </button>
+            </nav>
+            <div class="header-spacer"></div>
+            <!-- LLM status badge -->
+            <div class="llm-pill" id="llmPill" title="Which AI is powering your results">⏳ Checking AI…</div>
+        </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════════ MAIN -->
+    <main class="main-wrap">
+
+        <!-- ──────────────────────────────────────── TAB 1: PHOTO → REEL (PRIMARY) -->
+        <div class="tab-pane active" id="tabReel">
+
+            <!-- Hero banner -->
+            <div class="hero">
+                <h1 class="hero-title">Turn your travel photos into a cinematic reel 🎬</h1>
+                <p class="hero-sub">Drop your pics → AI picks the best shots → generates your narration, captions &
+                    hashtags</p>
+            </div>
+
+            <!-- ── STEP 1: Upload ─────────────────────────────────────────────── -->
+            <section class="reel-section" id="reelStep1">
+                <div class="step-header">
+                    <span class="step-num">1</span>
+                    <div>
+                        <h2 class="step-title">Drop your travel photos</h2>
+                        <p class="step-sub" id="reelStepSub">Up to 50 photos · Max 50 MB each · All image formats
+                            supported · Drag to reorder</p>
+                    </div>
+                </div>
+
+                <!-- Destination for AI context -->
+                <div class="context-row">
+                    <input id="reelDest" type="text" placeholder="📍 Where did you travel? (e.g. Jaipur)"
+                        class="dest-input">
+                    <select id="reelTone" class="tone-select">
+                        <option value="adventurous and inspiring">🔥 Adventurous</option>
+                        <option value="dreamy and peaceful">🌙 Dreamy</option>
+                        <option value="funny and light-hearted">😄 Funny</option>
+                        <option value="emotional and nostalgic">💛 Nostalgic</option>
+                    </select>
+                </div>
+
+                <!-- Drop zone -->
+                <div class="drop-zone card" id="dropZone" tabindex="0" role="button"
+                    aria-label="Upload photos — drag photos here or click Browse">
+                    <input type="file" id="photoInput"
+                        accept="image/*,.nef,.cr2,.arw,.dng,.raw,.raf,.orf,.rw2,.pef,.nef,.NEF,.CR2,.ARW,.DNG,.RAW,.RAF,.ORF"
+                        multiple hidden>
+                    <div class="drop-ph" id="dropPh">
+                        <div class="drop-icon">📷</div>
+                        <p class="drop-text">Drag & drop your photos here</p>
+                        <p class="drop-or">or</p>
+                        <button class="btn-outline" id="browseBtn" type="button">Browse files</button>
+                        <p class="drop-hint">JPG · PNG · WEBP · HEIC · GIF · BMP · AVIF · SVG · RAW (NEF · CR2 · ARW ·
+                            DNG · RAF…)</p>
+                        <p class="drop-hint" style="margin-top:4px;font-size:11px;opacity:.7">Drag to reorder after
+                            adding · Max 50 photos · 50 MB each</p>
+                    </div>
+                    <div class="photo-grid" id="photoGrid"></div>
+                </div>
+
+                <!-- Count bar -->
+                <div class="count-bar" id="countBar">
+                    <span id="countLabel">0 / 50 photos selected</span>
+                    <button class="link-btn" id="clearBtn">Clear all ✕</button>
+                </div>
+
+                <!-- Analyse button -->
+                <button class="btn-primary wide" id="analyseBtn" disabled>
+                    <span>✨ Analyse & Generate Reel Story</span>
+                    <span class="spinner" id="analyseSpinner"></span>
+                </button>
+                <div class="err-bar" id="uploadErr"></div>
+            </section>
+
+            <!-- ── STEP 2: AI Results ─────────────────────────────────────────── -->
+            <section class="reel-section hidden" id="reelStep2">
+                <div class="step-header">
+                    <span class="step-num done">✓</span>
+                    <div>
+                        <h2 class="step-title">AI selected your best shots</h2>
+                        <p class="step-sub" id="selectedSummary"></p>
+                    </div>
+                </div>
+
+                <!-- Selected photo grid with scores -->
+                <div class="selected-grid" id="selectedGrid"></div>
+
+                <!-- Score breakdown -->
+                <div class="score-info card" id="scoreInfo"></div>
+            </section>
+
+            <!-- ── STEP 3: Story ──────────────────────────────────────────────── -->
+            <section class="reel-section hidden" id="reelStep3">
+                <div class="step-header">
+                    <span class="step-num done">✓</span>
+                    <div>
+                        <h2 class="step-title">Your AI-generated reel story</h2>
+                        <p class="step-sub">Edit anything you like, then copy or share</p>
+                    </div>
+                </div>
+
+                <div class="story-panel card">
+                    <div class="story-title-row">
+                        <span class="story-icon">🎬</span>
+                        <span class="story-title-text" id="storyTitle">Generating…</span>
+                    </div>
+
+                    <div class="story-block">
+                        <label class="block-label">Narration Script</label>
+                        <textarea id="narrationEdit" class="narration-ta" rows="7"
+                            placeholder="AI narration will appear here…"></textarea>
+                        <button class="copy-btn" id="copyNarBtn">📋 Copy</button>
+                    </div>
+
+                    <div class="story-block">
+                        <label class="block-label">Scene Captions</label>
+                        <div id="captionsWrap" class="captions-list"></div>
+                    </div>
+
+                    <div class="story-block">
+                        <label class="block-label">Hashtags</label>
+                        <div id="hashtagsWrap" class="tags-row"></div>
+                        <button class="copy-btn" id="copyTagsBtn">📋 Copy Hashtags</button>
+                    </div>
+                </div>
+
+                <div class="reel-preview-card card" id="reelPreviewCard">
+                    <div class="reel-screen" id="reelScreen">
+                        <div class="reel-overlay">
+                            <div class="reel-play-btn">▶</div>
+                            <div class="reel-caption-preview" id="reelCapPrev">Your photos + narration = reel</div>
+                        </div>
+                        <!-- Slideshow of selected photos -->
+                        <div class="reel-slides" id="reelSlides"></div>
+                    </div>
+
+                    <!-- Video render progress UI -->
+                    <div id="videoProgressWrap" style="display:none; padding:16px 0 0">
+                        <div style="font-size:13px; color:var(--muted); margin-bottom:8px" id="videoProgressLabel">
+                            Rendering…</div>
+                        <div style="background:var(--bdr); border-radius:8px; height:8px; overflow:hidden">
+                            <div id="videoProgressBar"
+                                style="height:100%; width:0%; background:var(--pri); border-radius:8px; transition:width .3s">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generated video player (hidden until done) -->
+                    <div id="videoPlayerWrap" style="display:none; margin-top:14px">
+                        <video id="generatedVideo" controls playsinline
+                            style="width:100%; border-radius:12px; background:#000; max-height:360px"></video>
+                    </div>
+
+                    <div class="share-bar">
+                        <button class="btn-primary" id="downloadReelBtn">
+                            <span>🎬 Generate Video</span>
+                            <span class="spinner" id="videoSpinner"></span>
+                        </button>
+                        <button class="btn-ghost" id="shareBtn">🔗 Share Story</button>
+                        <button class="btn-ghost" id="newReelBtn">🔄 New Reel</button>
+                    </div>
+                </div>
+
+                <div class="err-bar" id="storyErr"></div>
+            </section>
+
+        </div><!-- end tabReel -->
+
+        <!-- ──────────────────────────────────────── TAB 2: TRIP PLANNER (SECONDARY) -->
+        <div class="tab-pane hidden" id="tabPlan">
+
+            <div class="hero">
+                <h1 class="hero-title">Plan your trip — city-specific AI guide 🗺️</h1>
+                <p class="hero-sub">Real landmarks, exact street food stalls, famous shops, hidden gems — not generic
+                    advice</p>
+            </div>
+
+            <form class="plan-form card" id="itineraryForm" novalidate>
+
+                <div class="field">
+                    <label for="destination">Destination City</label>
+                    <input id="destination" type="text" placeholder="e.g. Jaipur, Jaisalmer, Delhi, Paris, Tokyo"
+                        required>
+                    <span class="ferr" id="destErr"></span>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="days">Number of Days</label>
+                        <input id="days" type="number" min="1" max="14" value="3">
+                        <span class="ferr" id="daysErr"></span>
+                    </div>
+                    <div class="field">
+                        <label for="budget">Budget Level</label>
+                        <select id="budget">
+                            <option value="Low">Low — Backpacker</option>
+                            <option value="Medium" selected>Medium — Traveller</option>
+                            <option value="High">High — Luxury</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Interest chips -->
+                <div class="field">
+                    <label>Your Interests</label>
+                    <div class="chip-row" id="interestChips">
+                        <span class="i-chip" data-v="Food &amp; Street Food">🍜 Street Food</span>
+                        <span class="i-chip" data-v="History &amp; Heritage">🏛 History</span>
+                        <span class="i-chip" data-v="Nature &amp; Parks">🌿 Nature</span>
+                        <span class="i-chip" data-v="Adventure &amp; Trekking">🧗 Adventure</span>
+                        <span class="i-chip" data-v="Photography">📸 Photography</span>
+                        <span class="i-chip" data-v="Nightlife &amp; Bars">🌃 Nightlife</span>
+                        <span class="i-chip" data-v="Shopping &amp; Markets">🛍 Shopping</span>
+                        <span class="i-chip" data-v="Culture &amp; Festivals">🎭 Culture</span>
+                        <span class="i-chip" data-v="Wellness &amp; Yoga">🧘 Wellness</span>
+                        <span class="i-chip" data-v="Beaches &amp; Water Sports">🏖 Beach</span>
+                        <span class="i-chip" data-v="Hidden Gems">🔍 Hidden Gems</span>
+                        <span class="i-chip" data-v="Architecture">🏰 Architecture</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary wide" id="planBtn">
+                    <span>Generate City Guide</span>
+                    <span class="spinner" id="planSpinner"></span>
+                </button>
+                <div class="err-bar" id="planErr"></div>
+            </form>
+
+            <!-- Results -->
+            <div id="planResult" class="hidden">
+
+                <!-- Trip meta -->
+                <div class="trip-meta-card card" id="tripMeta"></div>
+
+                <!-- Day cards -->
+                <div id="dayCards"></div>
+
+                <!-- Budget breakdown -->
+                <div class="card budget-card" id="budgetCard"></div>
+
+                <!-- Cross-link to reel tab -->
+                <div class="crosslink-banner card">
+                    <div class="crosslink-icon">🎬</div>
+                    <div class="crosslink-text">
+                        <strong>Got trip photos?</strong>
+                        <p>Switch to the Photo → Reel tab to turn them into a cinematic Instagram reel!</p>
+                    </div>
+                    <button class="btn-primary crosslink-btn" id="goReelTabBtn">Make Reel →</button>
+                </div>
+            </div>
+
+        </div><!-- end tabPlan -->
+
+    </main>
+
+    <script src="video_generator.js"></script>
+    <script src="app.js?v=2.0.2"></script>
+
+    <div id="toast" class="toast-popup hidden"></div>
+</body>
+
+</html>

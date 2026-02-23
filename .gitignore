@@ -18,3 +18,5 @@ models/*.onnx
 # Logs
 *.log
 
+# User Data
+data/

@@ -1,112 +1,185 @@
+from PIL import Image, ImageOps
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 
 from models.vision.blur_detector import calculate_blur_score
-from models.vision.brightness_score import calculate_brightness
 from models.vision.sharpness_score import calculate_sharpness
-
+from models.vision.exposure_score import calculate_exposure_score
+from models.vision.contrast_score import calculate_contrast_score
+from models.vision.entropy_score import calculate_entropy_score
+from models.vision.face_detector import detect_faces
+from models.vision.deduplication import remove_duplicates, compute_phash
+from models.vision.loader import load_image_for_analysis
+from backend import utils
 
 SELECTED_DIR = "data/selected_images"
-TOP_N = 3  # Change to 8 later for reel generation
-
+TOP_N = 50 # Increase to 50 to ensure ALL photos in the reel are optimized and browser-readable
+TARGET_RES = (1080, 1920) 
 
 def normalize(value, min_val, max_val):
-    """
-    Normalize value between 0 and 1.
-    """
-    if max_val == min_val:
-        return 0.5  # neutral value if all images identical
+    if max_val == min_val: return 0.5
     return (value - min_val) / (max_val - min_val)
 
+def _refine_image_for_reel(src_path: str, dest_path: str):
+    """Refines top images to perfect vertical WebP."""
+    try:
+        ext = src_path.lower().split('.')[-1]
+        is_raw = ext in ['nef', 'cr2', 'arw', 'dng', 'raw', 'orf', 'sr2', 'raf', 'rw2', 'pef']
+
+        if is_raw:
+            import rawpy
+            with rawpy.imread(src_path) as raw:
+                # Use high-quality postprocessing for the final video reel
+                # fast_formatting=False for better quality
+                rgb = raw.postprocess(
+                    use_camera_wb=True, 
+                    no_auto_bright=False, 
+                    bright=1.0, 
+                    user_flip=0, 
+                    output_bps=8
+                )
+                img = Image.fromarray(rgb)
+                print(f"[Refine] Successfully developed RAW: {src_path}")
+        else:
+            img = Image.open(src_path)
+
+        # Fix orientation from EXIF
+        img = ImageOps.exif_transpose(img)
+        if img.mode != 'RGB': 
+            img = img.convert('RGB')
+        
+        # Resize to perfect vertical reel resolution (1080x1920)
+        refined = ImageOps.fit(img, TARGET_RES, method=Image.Resampling.LANCZOS)
+        
+        # Save as high-quality WebP (this is what the browser sees)
+        refined.save(dest_path, "WEBP", quality=85, method=6)
+        return True
+    except Exception as e:
+        print(f"[Refine] Failed {src_path}: {e}")
+        shutil.copy(src_path, dest_path)
+        return False
+
+def _analyze_single_image(path):
+    """Lightning-fast metrics using thumbnail loader."""
+    try:
+        img_array = load_image_for_analysis(path, max_dim=600)
+        if img_array is None: return None
+
+        return {
+            "path": path,
+            "blur": float(calculate_blur_score(image=img_array)),
+            "sharpness": float(calculate_sharpness(image=img_array)),
+            "exposure": float(calculate_exposure_score(image=img_array)),
+            "contrast": float(calculate_contrast_score(image=img_array)),
+            "entropy": float(calculate_entropy_score(image=img_array)),
+            "face": float(detect_faces(image=img_array))
+        }
+    except Exception: return None
 
 def process_uploaded_images(image_paths):
-    """
-    Full image quality pipeline:
-    1. Calculate blur, sharpness, brightness
-    2. Normalize metrics
-    3. Compute weighted final score
-    4. Rank images
-    5. Auto-select top N images
-    """
+    if not image_paths: return {"ranked_results": [], "selected_images": []}
 
-    if not image_paths:
-        return {
-            "ranked_results": [],
-            "selected_images": []
-        }
+    # Parallel Phase 1: FAST ANALYSIS
+    # Using 4-8 threads is optimal for most local setups to avoid overhead
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        raw_data = [r for r in executor.map(_analyze_single_image, image_paths) if r is not None]
 
-    raw_data = []
+    unique_data = remove_duplicates(raw_data)
+    if not unique_data: return {"ranked_results": [], "selected_images": []}
 
-    # Step 1: Collect raw metrics
-    for path in image_paths:
-        blur = float(calculate_blur_score(path))
-        sharpness = float(calculate_sharpness(path))
-        brightness = float(calculate_brightness(path))
+    # Helper for min/max
+    def get_range(key):
+        vals = [x[key] for x in unique_data]
+        return min(vals), max(vals)
 
-        raw_data.append({
-            "path": path,
-            "blur": blur,
-            "sharpness": sharpness,
-            "brightness": brightness
-        })
+    m_blur, mx_blur = get_range("blur")
+    m_sharp, mx_sharp = get_range("sharpness")
+    m_exp, mx_exp = get_range("exposure")
+    m_cont, mx_cont = get_range("contrast")
+    m_ent, mx_ent = get_range("entropy")
+    m_face, mx_face = get_range("face")
 
-    # Step 2: Find min/max for normalization
-    blur_vals = [x["blur"] for x in raw_data]
-    sharp_vals = [x["sharpness"] for x in raw_data]
-    bright_vals = [x["brightness"] for x in raw_data]
+    final_results = []
+    for item in unique_data:
+        n_sharp = normalize(item["sharpness"], m_sharp, mx_sharp)
+        n_blur = normalize(item["blur"], m_blur, mx_blur)
+        n_face = normalize(item["face"], m_face, mx_face)
+        n_ent = normalize(item["entropy"], m_ent, mx_ent)
+        n_cont = normalize(item["contrast"], m_cont, mx_cont)
+        n_exp = normalize(item["exposure"], m_exp, mx_exp)
 
-    min_blur, max_blur = min(blur_vals), max(blur_vals)
-    min_sharp, max_sharp = min(sharp_vals), max(sharp_vals)
-    min_bright, max_bright = min(bright_vals), max(bright_vals)
+        # Quality weights
+        score = (0.3*n_sharp + 0.2*n_blur + 0.15*n_face + 0.15*n_ent + 0.1*n_cont + 0.1*n_exp) * 100
+        quality = "High" if score > 70 else ("Medium" if score > 40 else "Low")
 
-    results = []
-
-    # Step 3: Normalize + combine
-    for item in raw_data:
-        norm_blur = normalize(item["blur"], min_blur, max_blur)
-        norm_sharp = normalize(item["sharpness"], min_sharp, max_sharp)
-        norm_bright = normalize(item["brightness"], min_bright, max_bright)
-
-        # Weighted final quality score
-        final_score = (
-            0.5 * norm_blur +
-            0.3 * norm_sharp +
-            0.2 * norm_bright
-        ) * 100
-
-        if final_score < 40:
-            quality = "Low"
-        elif final_score < 70:
-            quality = "Medium"
-        else:
-            quality = "High"
-
-        results.append({
+        final_results.append({
             "image_path": item["path"],
-            "blur_score": round(item["blur"], 2),
-            "sharpness_score": round(item["sharpness"], 2),
-            "brightness": round(item["brightness"], 2),
-            "final_quality_score": round(final_score, 2),
-            "quality": quality
+            "final_quality_score": round(score, 2),
+            "quality": quality,
+            "metrics": {k: round(v, 2) for k, v in item.items() if k != 'path'}
         })
 
-    # Step 4: Sort best first
-    results.sort(key=lambda x: x["final_quality_score"], reverse=True)
+    final_results.sort(key=lambda x: x["final_quality_score"], reverse=True)
+    
+    # NEW — Phase 2.5: VISION AI BEAUTY CHECK (Top 12 technically sharpest)
+    # We use the LLM to find the "Soul" of the photo (Smiles, Background, Emotion)
+    vision_candidates = final_results[:12]
+    print(f"[Vision] Analysing top {len(vision_candidates)} for aesthetics...")
+    
+    def vision_rank_task(res):
+        prompt = """
+        Analyze this travel photo for a cinematic reel. 
+        Return JSON with:
+        - aesthetic_score (0-10): composition and beauty
+        - smile_score (0-10): presence of clear happy faces
+        - landmark_score (0-10): presence of interesting landmarks/backgrounds
+        - primary_emotion: e.g. "Joyful", "Serene", "Adventurous"
+        """
+        try:
+            vision_raw = utils.call_vision_llm(res["image_path"], prompt)
+            v = json.loads(vision_raw)
+            # Boost final score based on Vision insights (up to +20 points)
+            bonus = (v.get('aesthetic_score', 0) * 0.8) + (v.get('smile_score', 0) * 0.7) + (v.get('landmark_score', 0) * 0.5)
+            res["final_quality_score"] = min(100, res["final_quality_score"] + bonus)
+            res["vision_data"] = v
+        except Exception as e:
+            print(f"[Vision] Skip {res['image_path']}: {e}")
+            res["vision_data"] = None
 
-    # Step 5: Auto-select top N images
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(vision_rank_task, vision_candidates))
+
+    # Re-sort after Vision boost
+    final_results.sort(key=lambda x: x["final_quality_score"], reverse=True)
+
     os.makedirs(SELECTED_DIR, exist_ok=True)
 
+    # Parallel Phase 2: REFINEMENT (Only for Top 8)
     selected_images = []
-    top_images = results[:min(TOP_N, len(results))]
+    top_8 = final_results[:min(TOP_N, len(final_results))]
+    refined_map = {}
 
-    for img in top_images:
-        filename = os.path.basename(img["image_path"])
-        dest_path = os.path.join(SELECTED_DIR, filename)
+    def refine_task(img):
+        f_name = f"refined_{os.path.basename(os.path.splitext(img['image_path'])[0])}.webp"
+        dst = os.path.join(SELECTED_DIR, f_name)
+        if _refine_image_for_reel(img["image_path"], dst):
+            return img["image_path"], dst.replace("\\", "/")
+        return None
 
-        shutil.copy(img["image_path"], dest_path)
-        selected_images.append(dest_path)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        for res in executor.map(refine_task, top_8):
+            if res:
+                refined_map[res[0]] = res[1]
+                selected_images.append(res[1])
 
-    return {
-        "ranked_results": results,
-        "selected_images": selected_images
-    }
+    for res in final_results:
+        if res["image_path"] in refined_map:
+            res["refined_path"] = refined_map[res["image_path"]]
+            # Add vision tags to the label if available
+            if res.get("vision_data"):
+                v = res["vision_data"]
+                res["quality_label"] = f"{v.get('primary_emotion', 'Good')} · {v.get('aesthetic_score', 0)}/10 Beauty"
+
+    return {"ranked_results": final_results, "selected_images": selected_images}

@@ -1,8 +1,11 @@
 import cv2
 import numpy as np
+from models.vision.loader import load_image_for_analysis
 
-def calculate_sharpness(image_path: str) -> float:
-    image = cv2.imread(image_path)
+def calculate_sharpness(image_path: str = None, image: np.ndarray = None) -> float:
+    if image is None and image_path:
+        image = load_image_for_analysis(image_path)
+        
     if image is None:
         return 0.0
 
