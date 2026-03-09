@@ -11,7 +11,7 @@
     <!-- To re-enable online font: uncomment the two lines below -->
     <!-- <link rel="preconnect" href="https://fonts.googleapis.com"> -->
     <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"> -->
-    <link rel="stylesheet" href="style.css?v=2.0.2">
+    <link rel="stylesheet" href="style.css?v=2.0.3">
     <!-- Leaflet Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -60,7 +60,7 @@
                     <span class="step-num">1</span>
                     <div>
                         <h2 class="step-title">Drop your travel photos</h2>
-                        <p class="step-sub" id="reelStepSub">Up to 50 photos · Max 50 MB each · All image formats
+                        <p class="step-sub" id="reelStepSub">Up to 100 photos · Max 50 MB each · All image formats
                             supported · Drag to reorder</p>
                     </div>
                 </div>
@@ -91,14 +91,14 @@
                         <p class="drop-hint">JPG · PNG · WEBP · HEIC · GIF · BMP · AVIF · SVG · RAW (NEF · CR2 · ARW ·
                             DNG · RAF…)</p>
                         <p class="drop-hint" style="margin-top:4px;font-size:11px;opacity:.7">Drag to reorder after
-                            adding · Max 50 photos · 50 MB each</p>
+                            adding · Max 100 photos · 50 MB each</p>
                     </div>
                     <div class="photo-grid" id="photoGrid"></div>
                 </div>
 
                 <!-- Count bar -->
                 <div class="count-bar" id="countBar">
-                    <span id="countLabel">0 / 50 photos selected</span>
+                    <span id="countLabel">0 / 100 photos selected</span>
                     <button class="link-btn" id="clearBtn">Clear all ✕</button>
                 </div>
 
@@ -405,6 +405,25 @@
 
                 <div id="dayCards"></div>
 
+                <!-- Mind Map Section -->
+                <div class="card mindmap-card hidden" id="mindMapCard">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+                        <div class="reasoning-hd" style="border-bottom:none; margin-bottom:0">🧠 Visual Mind Map</div>
+                        <div style="display:flex; gap:8px">
+                            <button id="copyMindMapTextBtn" class="btn-ghost"
+                                style="padding: 6px 12px; font-size: 12px">📋 Copy Summary</button>
+                            <button id="downloadMindMapBtn" class="btn-ghost"
+                                style="padding: 6px 12px; font-size: 12px">📥 Download PNG</button>
+                        </div>
+                    </div>
+                    <div id="mindMapCanvasWrap"
+                        style="width:100%; height:500px; border-radius:12px; overflow:hidden; background: #ffffff; border: 1px solid var(--bdr); position: relative; cursor: grab">
+                        <canvas id="mindMapCanvas" style="display:block"></canvas>
+                    </div>
+                    <p style="font-size:11px; color:var(--muted); margin-top:10px; text-align:center">Interactive
+                        hierarchy of your trip. Drag to pan, use mouse wheel to zoom.</p>
+                </div>
+
                 <!-- Map (Move below days) -->
                 <div class="card map-card" id="mapCard">
                     <div class="reasoning-hd" style="border-bottom:none; margin-bottom:8px">🗺️ Interactive Route Map
@@ -450,8 +469,8 @@
 
     </main>
 
-    <script src="video_generator.js"></script>
-    <script src="app.js?v=2.0.2"></script>
+    <script src="video_generator.js?v=2.0.3"></script>
+    <script src="app.js?v=2.0.3"></script>
 
     <div id="toast" class="toast-popup hidden"></div>
 </body>

@@ -6,7 +6,7 @@
  *   the browser can decode: JPG, PNG, WEBP, GIF, BMP, AVIF, SVG, HEIC (Safari/iOS)
  *   RAW files (NEF, CR2, ARW, DNG) render as a placeholder card since browsers
  *   cannot natively decode RAW — that is a browser limitation, not the app's.
- * • Up to 50 photos · 50 MB per photo
+ * • Up to 100 photos · 50 MB per photo
  * • Target: exactly 60 seconds of video at 30 fps (1 800 frames total)
  *   Each photo gets floor(1800 / photoCount) frames, remainder distributed to first slides.
  * • Ken Burns: smooth zoom 1.00 → 1.08 per slide
@@ -26,7 +26,7 @@ const VG = Object.freeze({
     TOTAL_FRAMES: 30 * 60,      // 1 800
     FADE_FRAMES: 15,           // 0.5-second cross-fade
     BITRATE: 5_000_000,    // 5 Mbps — good quality for 720×1280
-    MAX_FILES: 50,
+    MAX_FILES: 100,
     MAX_MB: 50,
     // All image formats browsers can decode natively (File objects)
     ACCEPTED_TYPES: new Set([
@@ -146,7 +146,7 @@ function _drawFrame(ctx, img, caption, slideProgress, alpha) {
 async function generateReelVideo(sources, captions = [], onProgress = () => { }) {
     if (!sources || sources.length === 0) throw new Error('No images provided.');
 
-    // ── 1. Clamp to 50 ──
+    // ── 1. Clamp to 100 ──
     const clampedSources = sources.slice(0, VG.MAX_FILES);
     const N = clampedSources.length;
 

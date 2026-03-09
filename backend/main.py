@@ -13,8 +13,8 @@ app = FastAPI(
     version     = "2.0.1", # Updated to trigger reload
 )
 
-# ── Upload size limit: 50 photos × 50 MB = 2 500 MB max body ──────────────────
-MAX_UPLOAD_BYTES = 50 * 50 * 1024 * 1024  # 2.5 GB ceiling
+# ── Upload size limit: 100 photos × 50 MB = 5 000 MB max body ──────────────────
+MAX_UPLOAD_BYTES = 100 * 50 * 1024 * 1024  # 5 GB ceiling
 
 class _LimitBody(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):

@@ -1499,6 +1499,7 @@ select:focus {
     color: var(--fg);
     font-style: italic;
 }
+
 .meta-best-for {
     font-size: 14px;
     color: var(--muted);
@@ -1534,18 +1535,28 @@ select:focus {
     margin: 4px 0;
 }
 
-.act-travel, .act-note, .act-cost {
+.act-travel,
+.act-note,
+.act-cost {
     font-size: 12px;
     margin-top: 4px;
     color: var(--muted);
 }
 
-.act-note { color: var(--pri); font-style: italic; }
-.act-cost { font-weight: 600; color: #10b981; }
+.act-note {
+    color: var(--pri);
+    font-style: italic;
+}
 
-.day-footer-note, .day-footer-cost {
+.act-cost {
+    font-weight: 600;
+    color: #10b981;
+}
+
+.day-footer-note,
+.day-footer-cost {
     padding: 12px;
-    background: rgba(0,0,0,0.02);
+    background: rgba(0, 0, 0, 0.02);
     border-top: 1px dashed var(--bdr);
     font-size: 13px;
     border-radius: 0 0 12px 12px;
@@ -1578,6 +1589,7 @@ select:focus {
     color: var(--pri);
     transform: translateY(-12x);
 }
+
 .i-chip.on {
     box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
 }
@@ -1599,11 +1611,13 @@ select:focus {
     font-size: 12px;
     transition: all 0.2s;
 }
+
 .map-link-mini:hover {
     background: var(--pri);
     color: #fff;
     transform: scale(1.1);
 }
+
 .day-start-loc {
     padding: 10px 14px;
     background: var(--surf);
@@ -1621,10 +1635,12 @@ select:focus {
     padding: 15px !important;
     overflow: hidden;
 }
+
 #itineraryMap {
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--bord);
 }
+
 .map-legend-item {
     display: flex;
     align-items: center;
@@ -1637,14 +1653,17 @@ select:focus {
     background: var(--card);
     transition: all 0.2s;
 }
+
 .map-legend-item:hover {
     background: var(--surf);
 }
+
 .map-legend-item.active {
     border-color: var(--pri);
     background: rgba(56, 189, 248, 0.1);
     color: var(--pri);
 }
+
 .dot {
     width: 10px;
     height: 10px;
@@ -1654,7 +1673,8 @@ select:focus {
 
 
 #itineraryMap {
-    background: #f1f5f9; /* Slate 100 - visible background if tiles fail */
+    background: #f1f5f9;
+    /* Slate 100 - visible background if tiles fail */
 }
 
 
@@ -1673,3 +1693,21 @@ select:focus {
     gap: 10px;
 }
 
+.mindmap-card {
+    margin-top: 20px;
+    border-top: 4px solid #7c3aed;
+    overflow: hidden;
+}
+
+#mindMapCanvasWrap::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+    background-size: 30px 30px;
+    opacity: 0.3;
+    pointer-events: none;
+}

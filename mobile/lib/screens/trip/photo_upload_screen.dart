@@ -14,7 +14,7 @@ import '../../widgets/common_widgets.dart';
 ///   • ReorderableGridView for drag-to-reorder
 ///   • Remove button per photo
 ///   • 50 MB per file validation
-///   • 50 photo maximum
+///   • 100 photo maximum
 ///   • All image formats accepted (JPEG, PNG, WEBP, HEIC, RAW, etc.)
 class PhotoUploadScreen extends StatefulWidget {
   const PhotoUploadScreen({super.key});

@@ -18,9 +18,9 @@ class ApiConfig {
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(minutes: 5); // video gen can take time
 
-  // ─── Image limits (50 photos · 50 MB each) ──────────────────────────────────
+  // ─── Image limits (100 photos · 50 MB each) ──────────────────────────────────
   static const int maxImageSizeMB = 50;
-  static const int maxImageCount  = 50;
+  static const int maxImageCount  = 100;
 
   // ─── All accepted image extensions ─────────────────────────────────────────
   /// Covers all formats image_picker / file_picker can pick.
