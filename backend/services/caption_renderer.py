@@ -165,56 +165,41 @@ def _render_pillow(
     line_gap  = int(font_px * 1.4)
     total_h   = len(lines) * line_gap
 
-    # Position — always bottom-third for story captions
-    if style.position == "center":
-        y_start = (h - total_h) // 2 + y_offset
-    elif style.position == "top":
-        y_start = int(h * 0.08) + y_offset
-    else:  # bottom (default)
-        y_start = h - int(h * 0.14) - total_h + y_offset
+    # Position — Force bottom-third for professional reel aesthetics as requested
+    # (Overrides style.position if it was set to 'center' or 'top' for these specific captions)
+    y_start = h - int(h * 0.16) - total_h + y_offset
 
-    # ── Solid black pill background ──────────────────────────────────────────
-    # Padding around the text block
-    pad_x = int(font_px * 0.9)
-    pad_y = int(font_px * 0.45)
+    # ── Solid rounded background ──────────────────────────────────────────────
+    pad_x = int(font_px * 0.8)
+    pad_y = int(font_px * 0.4)
     box_w = max_width + pad_x * 2
     box_h = total_h + pad_y * 2
     box_x = (w - box_w) // 2
     box_y = y_start - pad_y
-    r     = int(font_px * 0.45)   # corner radius
+    r     = int(font_px * 0.5)
 
-    # Draw rounded-rect background (85% opacity black)
-    bg_alpha = int(215 * alpha)   # 0–255, scaled by caption animation alpha
+    # Render soft black pill (80% opacity)
+    bg_alpha = int(200 * alpha)
     draw.rounded_rectangle(
         [box_x, box_y, box_x + box_w, box_y + box_h],
         radius=r,
         fill=(0, 0, 0, bg_alpha),
     )
 
-    # Parse text color
-    try:
-        hex_c      = style.color.lstrip('#')
-        r_c, g_c, b_c = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-        text_color = (r_c, g_c, b_c, int(alpha * 255))
-    except Exception:
-        text_color = (255, 255, 255, int(alpha * 255))
+    # ── High-visibility text ──────────────────────────────────────────────────
+    # User requested white/readable text at the bottom.
+    # We force white for story captions to ensure they pop against any background.
+    text_color = (255, 255, 255, int(alpha * 255))
+    shadow_color = (0, 0, 0, int(alpha * 180))
 
-    # ── Thin shadow stroke (1 px offset for crispness on white text) ─────────
-    shadow_color = (0, 0, 0, int(alpha * 160))
     for i, line in enumerate(lines):
         bbox   = draw.textbbox((0, 0), line, font=font)
         line_w = bbox[2] - bbox[0]
         x      = (w - line_w) // 2
         y      = y_start + i * line_gap
-        for dx, dy in [(1, 1), (-1, 1), (1, -1), (-1, -1)]:
+        # 4-way stroke for maximum readability
+        for dx, dy in [(2, 2), (-2, 2), (2, -2), (-2, -2)]:
             draw.text((x + dx, y + dy), line, font=font, fill=shadow_color)
-
-    # ── Main text ─────────────────────────────────────────────────────────────
-    for i, line in enumerate(lines):
-        bbox   = draw.textbbox((0, 0), line, font=font)
-        line_w = bbox[2] - bbox[0]
-        x      = (w - line_w) // 2
-        y      = y_start + i * line_gap
         draw.text((x, y), line, font=font, fill=text_color)
 
     # Composite overlay onto frame

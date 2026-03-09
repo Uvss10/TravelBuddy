@@ -742,7 +742,7 @@ $('cinematicReelBtn')?.addEventListener('click', async () => {
             theme: state.cinematicTheme || 'cinematic',
             audio_path: state.uploadedAudioPath || null,
             lrc_content: state.lrcContent || null,
-            duration_s: 30,   // default 30 s — fast render
+            duration_s: 60,   // Pro 1-minute default reel
         };
 
         const startResp = await fetch(`${API}/video/cinematic`, {

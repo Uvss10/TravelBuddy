@@ -38,14 +38,14 @@ import numpy as np
 import cv2
 from PIL import Image as PILImage
 
-# ── Constants (tuned for speed) ───────────────────────────────────────────────
-REEL_W        = 720          # was 1080 — 4× fewer pixels per frame
-REEL_H        = 1280         # was 1920
-FPS           = 30           # was 60  — 2× fewer frames per second
-DURATION_S    = 30           # default 30 s (keeps total frames ≤ 900)
-TOTAL_FRAMES  = FPS * DURATION_S          # 900 frames at default settings
-FADE_FRAMES   = int(FPS * 0.4)           # 12 frames = 0.4 s transition
-VIDEO_BITRATE = "4000k"
+# ── Constants (Pro Quality: 1080p/60fps) ───────────────────────────────────────
+REEL_W        = 1080         # Standard 1080p vertical
+REEL_H        = 1920
+FPS           = 60           # Smoother motion
+DURATION_S    = 60           # 1 minute default reel
+TOTAL_FRAMES  = FPS * DURATION_S          # 3600 frames
+FADE_FRAMES   = int(FPS * 0.45)          # 0.45 s transition
+VIDEO_BITRATE = "8000k"
 OUTPUT_DIR    = Path("data/generated_videos")
 
 # ── In-memory job registry ─────────────────────────────────────────────────────
@@ -341,7 +341,7 @@ def _run_job(
         fname = f"cinematic_{safe}_{theme_name}_{job_id[:8]}.mp4"
         out   = str(OUTPUT_DIR / fname)
 
-        _set_job(job_id, progress=10, message=f"🎬 Rendering {len(slots)} slots at 720p/30fps…")
+        _set_job(job_id, progress=10, message=f"🎬 Rendering {len(slots)} slots at 1080p/60fps…")
 
         success = _render_cinematic(
             slots=slots, theme=theme,
