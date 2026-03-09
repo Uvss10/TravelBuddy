@@ -69,3 +69,21 @@ async def upload_images(files: List[UploadFile] = File(...)):
         "uploaded_count"  : len(saved_files),
         "analysis_results": results,
     }
+
+
+@router.get("/list")
+def list_uploaded_images():
+    """
+    Returns all image paths currently stored in the upload and selected directories.
+    Used by the cinematic engine when state.analysed is unavailable (e.g. page reload).
+    """
+    paths = []
+    for directory in ["data/uploaded_images", "data/selected_images"]:
+        if os.path.isdir(directory):
+            for fname in sorted(os.listdir(directory)):
+                if fname.lower().rsplit(".", 1)[-1] in {
+                    "jpg", "jpeg", "png", "webp", "gif", "bmp",
+                    "tiff", "tif", "avif", "heic", "heif"
+                }:
+                    paths.append(os.path.join(directory, fname).replace("\\", "/"))
+    return {"images": paths, "count": len(paths)}

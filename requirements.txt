@@ -19,3 +19,7 @@ requests
 mwparserfromhell
 tqdm
 bz2file
+# Optional — enables real BPM detection for beat-sync video engine.
+# Falls back to synthetic beat grid if not installed.
+librosa
+soundfile

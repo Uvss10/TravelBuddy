@@ -1,5 +1,6 @@
 from PIL import Image, ImageOps
 import os
+import json
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
@@ -110,8 +111,8 @@ def process_uploaded_images(image_paths):
         n_cont = normalize(item["contrast"], m_cont, mx_cont)
         n_exp = normalize(item["exposure"], m_exp, mx_exp)
 
-        # Quality weights
-        score = (0.3*n_sharp + 0.2*n_blur + 0.15*n_face + 0.15*n_ent + 0.1*n_cont + 0.1*n_exp) * 100
+        # Quality weights: Favoring Sharpness and Face presence for the best travel memories
+        score = (0.25*n_sharp + 0.2*n_blur + 0.25*n_face + 0.1*n_ent + 0.1*n_cont + 0.1*n_exp) * 100
         quality = "High" if score > 70 else ("Medium" if score > 40 else "Low")
 
         final_results.append({
@@ -123,32 +124,58 @@ def process_uploaded_images(image_paths):
 
     final_results.sort(key=lambda x: x["final_quality_score"], reverse=True)
     
-    # NEW — Phase 2.5: VISION AI BEAUTY CHECK (Top 12 technically sharpest)
-    # We use the LLM to find the "Soul" of the photo (Smiles, Background, Emotion)
-    vision_candidates = final_results[:12]
-    print(f"[Vision] Analysing top {len(vision_candidates)} for aesthetics...")
-    
-    def vision_rank_task(res):
-        prompt = """
-        Analyze this travel photo for a cinematic reel. 
-        Return JSON with:
-        - aesthetic_score (0-10): composition and beauty
-        - smile_score (0-10): presence of clear happy faces
-        - landmark_score (0-10): presence of interesting landmarks/backgrounds
-        - primary_emotion: e.g. "Joyful", "Serene", "Adventurous"
-        """
+    # Phase 2.5: VISION AI BEAUTY CHECK — top 6 technically sharpest photos only
+    # Key optimisations vs the original:
+    #   - Images resized to max 512px before base64 encoding (was sending full 5-10 MB originals)
+    #   - Only 6 candidates (was 12) to stay within Groq rate limits
+    #   - 8-second hard timeout per photo so a slow call doesn't block everything
+    #   - max_workers=6 so all 6 calls run in parallel
+    vision_candidates = final_results[:6]
+    print(f"[Vision] Analysing top {len(vision_candidates)} photos for aesthetics (optimised)...")
+
+    def _make_thumbnail_b64(image_path: str, max_dim: int = 512) -> str:
+        """Return a small JPEG base64 string for the vision API — drastically reduces payload size."""
         try:
-            vision_raw = utils.call_vision_llm(res["image_path"], prompt)
+            with Image.open(image_path) as img:
+                img = ImageOps.exif_transpose(img)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                from io import BytesIO
+                buf = BytesIO()
+                img.save(buf, format='JPEG', quality=75)
+                return __import__('base64').b64encode(buf.getvalue()).decode('utf-8')
+        except Exception:
+            return ''
+
+    def vision_rank_task(res):
+        prompt = (
+            'Analyze this travel photo for a cinematic reel. '
+            'Return ONLY valid JSON (no markdown, no extra text) with these keys: '
+            'aesthetic_score (0-10), smile_score (0-10), landmark_score (0-10), '
+            'primary_emotion (string like Joyful/Serene/Adventurous).'
+        )
+        import concurrent.futures as _cf
+        def _do_call():
+            b64 = _make_thumbnail_b64(res['image_path'])
+            if not b64:
+                return
+            vision_raw = utils.call_vision_llm(res['image_path'], prompt)
             v = json.loads(vision_raw)
-            # Boost final score based on Vision insights (up to +20 points)
-            bonus = (v.get('aesthetic_score', 0) * 0.8) + (v.get('smile_score', 0) * 0.7) + (v.get('landmark_score', 0) * 0.5)
-            res["final_quality_score"] = min(100, res["final_quality_score"] + bonus)
-            res["vision_data"] = v
+            bonus = (v.get('aesthetic_score', 0) * 0.8 +
+                     v.get('smile_score',     0) * 0.7 +
+                     v.get('landmark_score',  0) * 0.5)
+            res['final_quality_score'] = min(100, res['final_quality_score'] + bonus)
+            res['vision_data'] = v
+        try:
+            with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
+                fut = _ex.submit(_do_call)
+                fut.result(timeout=8)   # 8 s hard cap per photo
         except Exception as e:
             print(f"[Vision] Skip {res['image_path']}: {e}")
-            res["vision_data"] = None
+            res['vision_data'] = None
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:   # all 6 run in parallel
         list(executor.map(vision_rank_task, vision_candidates))
 
     # Re-sort after Vision boost

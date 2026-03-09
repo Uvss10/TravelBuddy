@@ -8,7 +8,7 @@
    ══════════════════════════════════════════════════════════════════════════════ */
 'use strict';
 
-const API = '';
+const API = ''; // Use relative path since backend serves frontend
 const MAX_FILES = 50;
 const MAX_MB = 50;
 
@@ -29,6 +29,11 @@ const state = {
     interests: [],
     destination: '',
     tone: 'adventurous and inspiring',
+    currentPlan: null,    // The full itinerary JSON
+    map: null,            // Leaflet instance
+    markers: [],
+    polylines: [],
+    geoCache: {},
     // drag-reorder
     _dragIdx: null,
 };
@@ -259,6 +264,11 @@ $('analyseBtn')?.addEventListener('click', async () => {
         if (uploadData) {
             state.analysed = (uploadData.analysis_results?.ranked_results) || [];
             renderSelectedPhotos(uploadData);
+            // Cache server paths so the Cinematic button works after page reload
+            try {
+                const paths = state.analysed.map(r => r.image_path).filter(Boolean);
+                if (paths.length > 0) localStorage.setItem('tb_server_paths', JSON.stringify(paths));
+            } catch (_) { }
         } else {
             // ── Offline: use all uploaded photos as-is ─────────────────────
             state.analysed = [];
@@ -543,6 +553,279 @@ $('downloadReelBtn')?.addEventListener('click', async () => {
     }
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// 🎬  CINEMATIC ENGINE — Server-side 9-module pipeline
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * State additions for cinematic engine
+ */
+state.cinematicTheme = 'cinematic';
+state.uploadedAudioPath = null;   // server-side path returned by /video/upload-audio
+state.lrcContent = null;          // raw .lrc lyric file text
+
+// ── Theme selector wiring ─────────────────────────────────────────────────────
+document.querySelectorAll('.theme-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        document.querySelectorAll('.theme-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        state.cinematicTheme = chip.dataset.theme || 'cinematic';
+        showToast(`🎨 Theme: ${chip.textContent.trim()}`);
+    });
+});
+
+// ── Audio upload for beat sync ────────────────────────────────────────────────
+$('audioUploadInput')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const label = $('audioUploadLabel');
+    if (label) label.textContent = `⏳ Uploading ${file.name}…`;
+
+    try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const resp = await fetch(`${API}/video/upload-audio`, {
+            method: 'POST', body: fd,
+            signal: AbortSignal.timeout(60_000),
+        });
+        if (!resp.ok) throw new Error((await resp.json()).error || `HTTP ${resp.status}`);
+        const data = await resp.json();
+        state.uploadedAudioPath = data.audio_path;
+        if (label) label.textContent = `🎵 ${data.filename} (${data.size_mb} MB) — ready`;
+        showToast('🎵 Music uploaded — beat sync enabled!');
+    } catch (err) {
+        if (label) label.textContent = `❌ Upload failed: ${err.message}`;
+        state.uploadedAudioPath = null;
+    }
+    e.target.value = '';
+});
+
+// ── LRC lyric file loader ─────────────────────────────────────────────────────
+$('lrcFileInput')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+        state.lrcContent = await file.text();
+        const label = $('lrcLabel');
+        if (label) label.textContent = `📝 ${file.name} loaded`;
+        showToast('📝 Lyrics loaded — lyric overlay enabled!');
+    } catch (_) {
+        state.lrcContent = null;
+    }
+    e.target.value = '';
+});
+
+// ── Cinematic generate button — async job polling ─────────────────────────────
+$('cinematicReelBtn')?.addEventListener('click', async () => {
+    // ── Resolve server-side photo paths ─────────────────────────────────────
+    let serverPaths = (state.analysed || []).map(r => r.image_path).filter(Boolean);
+
+    const btn = $('cinematicReelBtn');
+    const sp = $('cinematicSpinner');
+    const progWrap = $('cinematicProgressWrap');
+    const progBar = $('cinematicProgressBar');
+    const progLbl = $('cinematicProgressLabel');
+
+    const setProgress = (pct, msg) => {
+        if (progBar) { progBar.style.background = ''; progBar.style.width = `${pct}%`; }
+        if (progLbl) progLbl.textContent = msg;
+    };
+
+    btn.disabled = true;
+    if (sp) sp.style.display = 'inline-block';
+    if (progWrap) progWrap.style.display = 'block';
+    showErr('storyErr', '');
+    $('videoPlayerWrap').style.display = 'none';
+    setProgress(2, '🔍 Preparing photos…');
+
+    try {
+        // ── 4-priority photo path resolution (robust, localStorage-cached) ────
+        // P0: localStorage cache  — survives page reload, set after every success
+        // P1: state.analysed      — from prior Analyse click this session
+        // P2: auto-upload browser files — only if photos dropped in step 1
+        // P3: GET /images/list    — photos already on server (with retry)
+        // Shows real error reason if all fail.
+
+        const LS_KEY = 'tb_server_paths';
+
+        // P0: try localStorage cache first
+        if (serverPaths.length === 0) {
+            try {
+                const cached = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+                if (Array.isArray(cached) && cached.length > 0) {
+                    serverPaths = cached;
+                    setProgress(4, `📂 Loaded ${serverPaths.length} photo paths from cache.`);
+                }
+            } catch (_) { }
+        }
+
+        // P2: auto-upload browser files if still no paths
+        if (serverPaths.length === 0 && state.photos.length > 0) {
+            setProgress(6, `📤 Uploading ${state.photos.length} photo(s) to server…`);
+            try {
+                const fd = new FormData();
+                state.photos.forEach(f => fd.append('files', f));
+                const up = await fetch(`${API}/images/upload`, {
+                    method: 'POST', body: fd,
+                    signal: AbortSignal.timeout(120_000),
+                });
+                if (up.ok) {
+                    const d = await up.json();
+                    const ranked = d.analysis_results?.ranked_results || [];
+                    serverPaths = ranked.map(r => r.image_path).filter(Boolean);
+                    if (ranked.length > 0) { state.analysed = ranked; }
+                } else {
+                    console.warn('[Cinematic] Upload returned', up.status);
+                }
+            } catch (uploadErr) {
+                console.warn('[Cinematic] Upload failed:', uploadErr.message);
+            }
+        }
+
+        // P3: GET /images/list — retry up to 3 times with 1s gap
+        if (serverPaths.length === 0) {
+            setProgress(5, '🔎 Checking server for existing photos…');
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const lr = await fetch(`${API}/images/list`, {
+                        signal: AbortSignal.timeout(8_000),
+                    });
+                    if (lr.ok) {
+                        const listData = await lr.json();
+                        serverPaths = (listData.images || []).slice(0, 50);
+                        if (serverPaths.length > 0) {
+                            setProgress(8, `✅ Found ${serverPaths.length} photos on server.`);
+                            break;
+                        }
+                    } else {
+                        console.warn(`[Cinematic] /images/list attempt ${attempt} → HTTP ${lr.status}`);
+                    }
+                } catch (listErr) {
+                    console.warn(`[Cinematic] /images/list attempt ${attempt} failed:`, listErr.message);
+                    if (attempt < 3) await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+        }
+
+        // Save to localStorage for next session
+        if (serverPaths.length > 0) {
+            try { localStorage.setItem(LS_KEY, JSON.stringify(serverPaths)); } catch (_) { }
+        }
+
+        // Final guard — nothing anywhere
+        if (serverPaths.length === 0) {
+            const isOffline = !navigator.onLine;
+            const hasLocalPhotos = state.photos.length > 0;
+            let errMsg = '⚠ ';
+            if (isOffline) {
+                errMsg += 'You appear to be offline. ';
+            }
+            if (!hasLocalPhotos) {
+                errMsg += 'No photos found. Please drag & drop photos in Step 1 first.';
+            } else {
+                errMsg += 'Could not reach backend (port 8000). Run: python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000';
+            }
+            showErr('storyErr', errMsg);
+            console.error('[Cinematic] All 4 priorities failed. state.photos:', state.photos.length, 'online:', navigator.onLine);
+            return;
+        }
+
+
+        setProgress(10, `📤 Starting cinematic pipeline (${serverPaths.length} photos)…`);
+
+        // ── POST to kick off the background job ───────────────────────────────
+        const payload = {
+            image_paths: serverPaths,
+            captions: state.storyData?.captions || [],
+            destination: state.destination || 'my_trip',
+            theme: state.cinematicTheme || 'cinematic',
+            audio_path: state.uploadedAudioPath || null,
+            lrc_content: state.lrcContent || null,
+            duration_s: 30,   // default 30 s — fast render
+        };
+
+        const startResp = await fetch(`${API}/video/cinematic`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(30_000),   // just for the kick-off call
+        });
+
+        if (!startResp.ok) {
+            const e = await startResp.json().catch(() => ({}));
+            throw new Error(e.message || e.detail || `HTTP ${startResp.status}`);
+        }
+
+        const startData = await startResp.json();
+        if (startData.status === 'error') throw new Error(startData.message);
+
+        const jobId = startData.job_id;
+        if (!jobId) throw new Error('No job ID returned from server.');
+
+        setProgress(12, '🚀 Render job started — polling for progress…');
+
+        // ── Poll GET /video/status/{jobId} every 2 seconds ────────────────────
+        await new Promise((resolve, reject) => {
+            const poll = setInterval(async () => {
+                try {
+                    const statusResp = await fetch(`${API}/video/status/${jobId}`, {
+                        signal: AbortSignal.timeout(10_000),
+                    });
+                    if (!statusResp.ok) return;   // transient error — keep polling
+                    const s = await statusResp.json();
+
+                    // Mirror live backend progress
+                    const pct = Math.max(12, Math.min(99, s.progress || 12));
+                    setProgress(pct, s.message || '🎬 Rendering…');
+
+                    if (s.status === 'done') {
+                        clearInterval(poll);
+                        setProgress(100, `✅ ${s.message || 'Cinematic reel ready!'}`);
+
+                        if (s.video_url) {
+                            const vid = $('generatedVideo');
+                            vid.src = `${API}${s.video_url}`;
+                            $('videoPlayerWrap').style.display = 'block';
+                            vid.play().catch(() => { });
+
+                            const a = document.createElement('a');
+                            a.href = vid.src;
+                            const dest = (state.destination || 'reel').replace(/\s+/g, '_');
+                            a.download = `TravelBuddy_${dest}_${state.cinematicTheme}.mp4`;
+                            a.click();
+                            showToast(`🎬 Reel ready! BPM: ${s.beat_map?.bpm || '–'}`);
+                        }
+                        resolve();
+                    } else if (s.status === 'error' || s.status === 'not_found') {
+                        clearInterval(poll);
+                        reject(new Error(s.message || 'Render failed on server.'));
+                    }
+                    // else: still 'running' or 'queued' — keep polling
+                } catch (pollErr) {
+                    console.warn('[Cinematic] poll error:', pollErr);
+                    // keep polling — transient network issue
+                }
+            }, 2000);   // poll every 2 s
+
+            // Bail out after 15 minutes max
+            setTimeout(() => {
+                clearInterval(poll);
+                reject(new Error('Render timed out after 15 minutes.'));
+            }, 15 * 60 * 1000);
+        });
+
+    } catch (err) {
+        setProgress(0, `❌ ${err.message}`);
+        if (progBar) progBar.style.background = '#ef4444';
+        showErr('storyErr', `Cinematic render failed: ${err.message}`);
+        console.error('[Cinematic]', err);
+    } finally {
+        btn.disabled = false;
+        if (sp) sp.style.display = 'none';
+    }
+});
+
 // ── New Reel ──────────────────────────────────────────────────────────────────
 $('newReelBtn')?.addEventListener('click', () => {
     state.photos = []; state.analysed = []; state.storyData = null;
@@ -581,6 +864,10 @@ $('itineraryForm')?.addEventListener('submit', async (e) => {
     const dest = $('destination').value.trim();
     const days = parseInt($('days').value);
     const budget = $('budget').value;
+    const travelStyle = $('travelStyle').value;
+    const groupType = $('groupType').value;
+    const startLoc = $('startLoc').value.trim();
+    const constraints = $('constraints').value.trim();
 
     let valid = true;
     if (!dest) { $('destErr').textContent = 'Enter a city name.'; $('destErr').classList.add('show'); valid = false; }
@@ -589,13 +876,22 @@ $('itineraryForm')?.addEventListener('submit', async (e) => {
     else { $('daysErr').classList.remove('show'); }
     if (!valid) return;
 
-    setLoading('planBtn', 'planSpinner', true, 'Generating City Guide (Local AI is slow)...');
+    setLoading('planBtn', 'planSpinner', true, 'Planning your route optimized trip…');
 
     try {
         const resp = await fetch(`${API}/itinerary/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ destination: dest, days, budget, interests: state.interests }),
+            body: JSON.stringify({
+                destination: dest,
+                days,
+                budget,
+                interests: state.interests,
+                travel_style: travelStyle,
+                group_type: groupType,
+                starting_location: startLoc,
+                custom_constraints: constraints
+            }),
             signal: AbortSignal.timeout(300_000),
         });
         if (!resp.ok) {
@@ -603,8 +899,8 @@ $('itineraryForm')?.addEventListener('submit', async (e) => {
             throw new Error(err.detail || `Server error ${resp.status}`);
         }
         const data = await resp.json();
-        renderPlan(data);
         $('planResult').classList.remove('hidden');
+        renderPlan(data);
         $('planResult').scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
         showErr('planErr', `Failed: ${err.message}`);
@@ -613,78 +909,145 @@ $('itineraryForm')?.addEventListener('submit', async (e) => {
     }
 });
 
+$('tweakBtn')?.addEventListener('click', async () => {
+    const mod = $('tweakInput').value.trim();
+    if (!mod) { showErr('tweakErr', 'Please describe what to change.'); return; }
+    if (!state.currentPlan) { showErr('tweakErr', 'No plan to tweak! Generate one first.'); return; }
+
+    showErr('tweakErr', '');
+    setLoading('tweakBtn', 'tweakSpinner', true, 'Applying Tweak…');
+
+    try {
+        const resp = await fetch(`${API}/itinerary/edit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                existing_plan: state.currentPlan,
+                modification: mod,
+                interests: state.interests
+            }),
+            signal: AbortSignal.timeout(300_000),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.detail || `Server error ${resp.status}`);
+        }
+        const data = await resp.json();
+        $('planResult').classList.remove('hidden');
+        renderPlan(data);
+        $('tweakInput').value = '';
+        showToast('✨ Plan updated successfully!');
+    } catch (err) {
+        showErr('tweakErr', `Tweak failed: ${err.message}`);
+    } finally {
+        setLoading('tweakBtn', 'tweakSpinner', false, 'Apply Modification');
+    }
+});
+
+$('clearInterests')?.addEventListener('click', () => {
+    state.interests = [];
+    document.querySelectorAll('.i-chip').forEach(c => c.classList.remove('on'));
+});
+
 // Render plan
 function renderPlan(data) {
-    $('tripMeta').innerHTML = `
-        <div class="meta-dest">${data.destination}</div>
-        <div class="meta-chips">
-            <span class="meta-chip">📅 ${data.total_days} Days</span>
-            <span class="meta-chip">💰 ${data.budget_category}</span>
-            ${(data.interests || []).map(i => `<span class="meta-chip">• ${i}</span>`).join('')}
-        </div>`;
-
     let raw = data.itinerary_ai_output;
     if (typeof raw === 'string') {
         try { const m = raw.match(/\{[\s\S]*\}/); raw = m ? JSON.parse(m[0]) : null; }
         catch (_) { raw = null; }
     }
+    state.currentPlan = raw;
+
+    const summary = (raw && raw.trip_summary) || {};
+
+    $('tripMeta').innerHTML = `
+        <div class="meta-dest">${summary.destination || data.destination}</div>
+        <div class="meta-chips">
+            <span class="meta-chip">📅 ${summary.duration_days || data.total_days} Days</span>
+            <span class="meta-chip">💰 ${summary.estimated_total_trip_cost || data.budget_category}</span>
+            <span class="meta-chip">🔥 Intensity: ${summary.intensity_score || '?'}/10</span>
+            <span class="meta-chip">⏱️ Travel: ${summary.estimated_total_travel_time || '?'}</span>
+            ${(data.interests || []).map(i => `<span class="meta-chip">• ${i}</span>`).join('')}
+        </div>
+        ${summary.style_adherence ? `<div class="meta-best-for">Route Strategy: ${summary.style_adherence}</div>` : ''}
+    `;
 
     const dc = $('dayCards');
     dc.innerHTML = '';
 
-    // 1. Normalize data into a standard flat list of {label, activities[]}
-    let normalized = [];
     if (raw && Array.isArray(raw.days)) {
-        // Modern RAG Format: { "days": [ { "day": 1, "morning": "..."}, ... ] }
-        normalized = raw.days.map(d => ({
-            label: `Day ${d.day || d.Day || '?'}`,
-            activities: [
-                d.morning ? `🌅 Morning: ${d.morning}` : null,
-                d.afternoon ? `☀️ Afternoon: ${d.afternoon}` : null,
-                d.evening ? `🌆 Evening: ${d.evening}` : null,
-                d.notes ? `💡 Note: ${d.notes}` : null
-            ].filter(Boolean)
-        }));
-    } else if (raw && typeof raw === 'object') {
-        // Legacy Format: { "Day 1": ["act1", "act2"], "Day 2": "act3" }
-        normalized = Object.entries(raw)
-            .filter(([k]) => !['city', 'destination', 'meta', 'days'].includes(k.toLowerCase()))
-            .map(([k, v]) => ({
-                label: k,
-                activities: Array.isArray(v) ? v : [String(v)]
-            }));
-    }
-
-    // 2. Render the normalized list
-    if (normalized.length > 0) {
-        normalized.forEach((day, idx) => {
+        raw.days.forEach((day, idx) => {
             const card = document.createElement('div');
             card.className = 'day-card';
-            const items = day.activities.map(a => {
-                const str = String(a); // Safety first
-                const lc = str.toLowerCase();
-                let cls = '';
-                if (lc.includes('morning') || str.includes('🌅') || str.includes('🏛')) cls = 'morning';
-                else if (lc.includes('afternoon') || str.includes('☀️')) cls = 'afternoon';
-                else if (lc.includes('evening') || lc.includes('night') || str.includes('🌆')) cls = 'evening';
-                else if (lc.includes('tip') || lc.includes('budget') || lc.includes('note') || str.includes('💡')) cls = 'tip';
-                else if (lc.includes('hidden') || lc.includes('gem') || str.includes('🔍')) cls = 'gem';
-                return `<li class="act-item ${cls}">${str}</li>`;
+
+            const acts = (day.activities || []).map(a => {
+                const time = a.recommended_time || '';
+                const place = a.place_name || '';
+                const desc = a.description || '';
+                const cost = a.estimated_cost ? ` • ${a.estimated_cost}` : '';
+                const travel = a.travel_time_from_previous ? `<div class="act-travel"><span>${a.transport_mode === 'walking' ? '🚶' : '🚗'}</span> <strong>${a.travel_time_from_previous}</strong> from previous</div>` : '';
+                const dur = a.estimated_duration ? `<span class="act-dur">⏱️ ${a.estimated_duration}</span>` : '';
+                const mapLabel = a.map_ready_label || `${place}, ${a.city || ''}, ${a.country || ''}`;
+
+                let cls = (a.category || '').toLowerCase();
+                if (cls.includes('food')) cls = 'food';
+                else if (cls.includes('market') || cls.includes('shop')) cls = 'shopping';
+
+                return `
+                    <li class="act-item ${cls}">
+                        <div class="act-header">
+                            <span class="act-time">${time}</span>
+                            <div style="display:flex; align-items:center; gap:8px">
+                                <strong>${place}</strong>
+                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapLabel)}" target="_blank" class="map-link-mini" title="View on Map">📍</a>
+                            </div>
+                            ${dur}
+                        </div>
+                        <p class="act-desc">${desc}</p>
+                        ${travel}
+                        ${a.buffer_time ? `<div class="act-note">💤 Buffer: ${a.buffer_time}</div>` : ''}
+                        ${cost ? `<div class="act-cost">💰 ${cost}</div>` : ''}
+                    </li>`;
             }).join('');
 
             card.innerHTML = `
                 <div class="day-hd" onclick="toggleDay(this)">
-                    <div class="day-num">${idx + 1}</div>
-                    <div class="day-name">${day.label}</div>
+                    <div class="day-num">${day.day || idx + 1}</div>
+                    <div class="day-name">Strategy: ${day.route_strategy || 'Balanced Exploration'}</div>
                     <span class="day-chevron ${idx === 0 ? 'open' : ''}">▾</span>
                 </div>
-                <div class="day-body" style="${idx !== 0 ? 'display:none' : ''}"><ul class="act-list">${items}</ul></div>`;
+                <div class="day-body" style="${idx !== 0 ? 'display:none' : ''}">
+                    <div class="day-start-loc">🚩 Start: ${day.starting_point || 'City Center'}</div>
+                    <ul class="act-list">${acts}</ul>
+                    <div class="day-footer-cost">
+                        <span>Transit Time: ${day.total_daily_travel_time || '?'}</span> | 
+                        <span>Daily Cost: ${day.daily_cost_estimate || '?'}</span>
+                    </div>
+                </div>`;
             dc.appendChild(card);
         });
+
+        // Optimization Summary
+        const optNotes = raw.routing_notes || raw.optimization_notes || raw.reasoning_summary;
+        if (optNotes) {
+            const rCard = document.createElement('div');
+            rCard.className = 'card reasoning-card';
+            rCard.innerHTML = `
+                <div class="reasoning-hd">AI Route Optimization Logic</div>
+                <div class="reasoning-body">${optNotes}</div>
+            `;
+            dc.appendChild(rCard);
+        }
     } else {
-        dc.innerHTML = `<div class="card"><pre style="white-space:pre-wrap;font-size:14px">${String(data.itinerary_ai_output)}</pre></div>`;
+        dc.innerHTML = `<div class="card"><pre style="white-space:pre-wrap;font-size:14px">${JSON.stringify(raw || data.itinerary_ai_output, null, 2)}</pre></div>`;
     }
     renderBudget(data.hotel_and_budget_estimation);
+
+    // Trigger map after layout settles
+    setTimeout(async () => {
+        try { await renderMap(raw); }
+        catch (e) { console.error("Map render failed:", e); }
+    }, 400);
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -719,48 +1082,165 @@ function renderBudget(b) {
     card.classList.remove('hidden');
 }
 
+// ── Interactive Map ────────────────────────────────────────────────────────────
+const MAP_COLORS = ['#38bdf8', '#fb7185', '#34d399', '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8'];
+
+async function geocode(query) {
+    if (!query) return null;
+    if (state.geoCache[query]) return state.geoCache[query];
+    // Respect Nominatim 1 request/sec policy (approx)
+    await new Promise(r => setTimeout(r, 250));
+    try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+        const data = await resp.json();
+        if (data && data.length > 0) {
+            const loc = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+            state.geoCache[query] = loc;
+            return loc;
+        }
+    } catch (e) { console.warn('Geocode failed for:', query, e); }
+    return null;
+}
+
+async function renderMap(plan) {
+    if (!window.L || !plan || !Array.isArray(plan.days)) return;
+    const mapEl = $('itineraryMap');
+    if (!mapEl) return;
+
+    // Init map
+    if (!state.map) {
+        state.map = L.map('itineraryMap');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(state.map);
+    }
+
+    // Initial center on destination to avoid "World Map" flicker
+    const cityCenter = await geocode(plan.trip_summary?.destination || plan.destination);
+    if (cityCenter) state.map.setView([cityCenter.lat, cityCenter.lng], 12);
+    else state.map.setView([20, 0], 2);
+
+    state.map.invalidateSize();
+    setTimeout(() => state.map.invalidateSize(), 300);
+
+    // Clear prev
+    state.markers.forEach(m => state.map.removeLayer(m));
+    state.polylines.forEach(p => state.map.removeLayer(p));
+    state.markers = [];
+    state.polylines = [];
+    const legend = $('mapLegend');
+    if (legend) legend.innerHTML = '';
+
+    const allCoords = [];
+
+    // Process days
+    for (let i = 0; i < plan.days.length; i++) {
+        const day = plan.days[i];
+        const color = MAP_COLORS[i % MAP_COLORS.length];
+        const dayCoords = [];
+
+        // Add to legend
+        if (legend) {
+            const legItem = document.createElement('div');
+            legItem.className = 'map-legend-item';
+            legItem.innerHTML = `<span class="dot" style="background:${color}"></span> Day ${day.day || i + 1}`;
+            legend.appendChild(legItem);
+        }
+
+        // Geocode activities
+        const acts = day.activities || [];
+        for (let j = 0; j < acts.length; j++) {
+            const act = acts[j];
+            const query = act.map_ready_label || `${act.place_name}, ${plan.trip_summary?.destination || ''}`;
+            const loc = await geocode(query);
+
+            if (loc) {
+                console.log(`[Map] Placed marker for: ${act.place_name} at [${loc.lat}, ${loc.lng}]`);
+                dayCoords.push([loc.lat, loc.lng]);
+                allCoords.push([loc.lat, loc.lng]);
+
+                const marker = L.circleMarker([loc.lat, loc.lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(state.map).bindPopup(`<strong>Day ${day.day || i + 1}</strong>: ${act.place_name}<br><small>${act.time_slot || ''}</small>`);
+                state.markers.push(marker);
+            }
+        }
+
+        // Draw day route
+        if (dayCoords.length > 1) {
+            const poly = L.polyline(dayCoords, {
+                color: color,
+                weight: 4,
+                opacity: 0.6,
+                dashArray: '5, 10'
+            }).addTo(state.map);
+            state.polylines.push(poly);
+        }
+    }
+
+    // Fit view
+    if (allCoords.length > 0) {
+        state.map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] });
+    }
+    state.map.invalidateSize();
+}
+
 // ── LLM Status pill ───────────────────────────────────────────────────────────
 async function checkLlmStatus() {
     const pill = $('llmPill');
+    if (!pill) return;
     try {
         const resp = await fetch(`${API}/llm/status`, { signal: AbortSignal.timeout(5000) });
-        if (!resp.ok) throw new Error();
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const s = await resp.json();
-        const icons = { groq: '🟢', ollama: '🔵', mock: '🟡' };
-        pill.innerHTML = `<span>${icons[s.provider] || '⚪'} ${s.label}</span> <small style="opacity:0.6;font-size:10px;margin-left:8px;border-left:1px solid rgba(0,0,0,0.1);padding-left:8px">Click to Switch</small>`;
+        // Server now includes emoji in label — display directly
+        pill.innerHTML = `<span>${s.label}</span> <small style="opacity:0.55;font-size:10px;margin-left:8px;border-left:1px solid rgba(255,255,255,0.15);padding-left:8px">click to switch</small>`;
         pill.className = `llm-pill ${s.provider}`;
         pill.title = s.detail;
+        pill.dataset.provider = s.provider;
+        pill.dataset.preferLocal = s.prefer_local;
     } catch {
-        if (pill) { pill.textContent = '🔵 Offline Mode'; pill.className = 'llm-pill mock'; pill.title = 'Backend not running — video generation still works fully offline!'; }
+        if (pill) {
+            pill.innerHTML = '<span>⚫ Offline Mode</span>';
+            pill.className = 'llm-pill mock';
+            pill.title = 'Backend not reachable — video generation still works fully offline in the browser!';
+            pill.dataset.provider = 'mock';
+        }
     }
 }
 
 async function toggleLlmMode() {
     const pill = $('llmPill');
-    if (pill.dataset.loading === 'true') return;
+    if (!pill || pill.dataset.loading === 'true') return;
+    if (pill.dataset.provider === 'mock') {
+        showToast('⚫ Backend offline — start the server to switch AI modes.');
+        return;
+    }
 
-    console.log('[LLM] Requesting mode toggle...');
     pill.dataset.loading = 'true';
-    const originalContent = pill.innerHTML;
-    pill.innerHTML = `<span>⏳ Switching…</span>`;
+    const originalHTML = pill.innerHTML;
+    pill.innerHTML = '<span>⏳ Switching…</span>';
 
     try {
-        const resp = await fetch(`${API}/llm/toggle_mode`, { method: 'POST' });
-        if (resp.ok) {
-            const data = await resp.json();
-            const modeName = data.prefer_local ? 'Local AI (Private/Slow)' : 'Cloud API (Fast/Smart)';
-            console.log('[LLM] Mode toggled to:', modeName);
-            showToast(`🚀 Switched to ${modeName}`);
-            await checkLlmStatus();
-        } else {
-            console.error('[LLM] Toggle failed:', resp.status);
-            showToast(`❌ Failed to switch mode: ${resp.status}`);
-            pill.innerHTML = originalContent;
-        }
+        const resp = await fetch(`${API}/llm/toggle_mode`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(8000),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        showToast(`✅ ${data.message || (data.prefer_local ? 'Switched to Local AI' : 'Switched to Cloud API')}`);
+        // Refresh pill state from server
+        await checkLlmStatus();
     } catch (err) {
-        console.error('[LLM] Failed to toggle mode:', err);
-        showToast(`❌ Connection error during switch.`);
-        pill.innerHTML = originalContent;
+        console.error('[LLM] Toggle failed:', err);
+        showToast('❌ Could not switch AI mode — is the backend running?');
+        pill.innerHTML = originalHTML;
     } finally {
         pill.dataset.loading = 'false';
     }

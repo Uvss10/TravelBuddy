@@ -1,9 +1,9 @@
 import os
 import json
-from backend.schemas.itinerary_schema import ItineraryRequest
+from backend.schemas.itinerary_schema import ItineraryRequest, ItineraryEditRequest
 from backend.utils import call_llm
 from backend.services.budget_service import estimate_budget
-from rag.rag_pipeline import rag_generate_itinerary
+from rag.rag_pipeline import rag_generate_itinerary, rag_edit_itinerary
 
 # Load prompt template once
 _PROMPT_PATH = os.path.join(
@@ -46,7 +46,14 @@ def generate_itinerary(request: ItineraryRequest):
     # 1. RUN RAG PIPELINE
     # This now directly generates the itinerary using the retrieved context
     raw_output = rag_generate_itinerary(
-        request.destination, request.days, request.budget, request.interests
+        request.destination, 
+        request.days, 
+        request.budget, 
+        request.interests,
+        travel_style=request.travel_style,
+        group_type=request.group_type,
+        starting_location=request.starting_location,
+        custom_constraints=request.custom_constraints
     )
 
     budget_estimation = estimate_budget(request.days, request.budget)
@@ -67,5 +74,25 @@ def generate_itinerary(request: ItineraryRequest):
         "meta": {
             "is_rag": True,
             "pipeline": "new_chroma_rag"
+        }
+    }
+
+
+def edit_itinerary(request: ItineraryEditRequest):
+    """
+    Handles partial editing of an itinerary.
+    """
+    raw_output = rag_edit_itinerary(request.existing_plan, request.modification, request.interests)
+    
+    try:
+        updated_json = _parse_itinerary_json(raw_output)
+    except Exception:
+        updated_json = raw_output
+
+    return {
+        "itinerary_ai_output": updated_json,
+        "meta": {
+            "is_edit": True,
+            "modification": request.modification
         }
     }

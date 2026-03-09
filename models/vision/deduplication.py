@@ -20,28 +20,27 @@ def compute_phash(image_path, hash_size=8):
     # Convert binary array to integer hash
     return sum([2**i for (i, v) in enumerate(diff.flatten()) if v])
 
-def remove_duplicates(image_data, threshold=5):
+def remove_duplicates(image_data, threshold=10):
     """
     Filters out near-duplicate images based on dHash from image_data list.
-    image_data: List of dicts, each must have 'path' and 'sharpness' keys.
+    image_data: List of dicts, each must have 'path', 'sharpness', 'blur', 'face', etc.
     Returns: Filtered list of image_data.
     
     Logic:
     1. Group images by hash similarity (Hamming distance <= threshold).
-    2. In each group, keep the one with the highest sharpness score.
+    2. In each group, keep the one with the highest quality score.
     """
     
     # Pre-compute hashes
     for img in image_data:
-        img['phash'] = compute_phash(img['path'])
+        if 'phash' not in img:
+            img['phash'] = compute_phash(img['path'])
         
     unique_groups = []
-    
-    # Iterate through images and group them
-    # Simple O(N^2) approach is fine for small batches (~100 images)
-    # For large datasets, use BK-tree or similar
-    
     processed_indices = set()
+    
+    # Sort images by path to ensure deterministic grouping
+    image_data.sort(key=lambda x: x['path'])
     
     for i in range(len(image_data)):
         if i in processed_indices:
@@ -70,8 +69,24 @@ def remove_duplicates(image_data, threshold=5):
                 current_group.append(image_data[j])
                 processed_indices.add(j)
         
-        # Select best image from group (highest sharpness)
-        best_image = max(current_group, key=lambda x: x['sharpness'])
+        # Select best image from group using a weighted sum of available metrics
+        # We give higher weight to face score and sharpness within a duplicate group
+        def get_selection_score(item):
+            # Sharpness (Sobel mean) typically 10-50
+            # Blur (Laplacian var) typically 100-2000
+            # Face score 0-10
+            # Entropy 0-8
+            
+            # Since we are comparing near-identical images, raw comparison is okay.
+            # We scale blur down to be comparable to sharpness.
+            s_sharp = item.get('sharpness', 0)
+            s_blur  = item.get('blur', 0) / 10.0  # Bring into 10-200 range
+            s_face  = item.get('face', 0) * 5.0   # Boost face importance (0-50 range)
+            s_ent   = item.get('entropy', 0)
+            
+            return s_sharp + s_blur + s_face + s_ent
+
+        best_image = max(current_group, key=get_selection_score)
         unique_groups.append(best_image)
         
     return unique_groups

@@ -29,8 +29,10 @@ def get_ollama_model():
 
 # Mode Switch
 def get_prefer_local():
+    """Read PREFER_LOCAL_LLM from .env on every call so toggle takes effect immediately."""
     load_dotenv(_ENV_PATH, override=True)
-    return os.getenv("PREFER_LOCAL_LLM", "true").lower() == "true"
+    # Default: false = Cloud-first (matches .env default, avoids Ollama timeout when not running)
+    return os.getenv("PREFER_LOCAL_LLM", "false").lower() == "true"
 
 # Vision Models
 def get_groq_vision_model():
@@ -467,77 +469,91 @@ def _smart_mock(prompt: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PUBLIC: call_llm  —  tries all providers in order
+# PUBLIC: call_llm  —  STRICTLY respects the mode selected by the user.
+#
+# Mode: CLOUD (prefer_local=False)
+#   Tries Groq. If Groq fails -> smart mock. NEVER touches Ollama.
+#
+# Mode: LOCAL  (prefer_local=True)
+#   Tries Ollama. If Ollama fails -> smart mock. NEVER touches Groq.
+#   Guarantees 100% private - no cloud calls regardless of Ollama status.
 # ─────────────────────────────────────────────────────────────────────────────
 def call_llm(prompt: str, model: str = None) -> str:
-    """Entry point for Text LLM calls (Cloud vs Local)"""
+    """Route a text LLM call to the provider defined by PREFER_LOCAL_LLM. No cross-mode fallback."""
     prefer_local = get_prefer_local()
-    
+
     if prefer_local:
-        print("[LLM] Preference: LOCAL")
-        # Try Local first
-        try: 
+        # ── LOCAL mode: Ollama only ─────────────────────────────────────────────────
+        print("[LLM] Mode: LOCAL — Ollama only, cloud BLOCKED")
+        try:
             return _call_ollama_http(prompt)
         except Exception as e:
             print(f"[LLM] Ollama HTTP failed: {e}")
-        
-        try: 
+        try:
             return _call_ollama_subprocess(prompt)
         except Exception as e:
             print(f"[LLM] Ollama subprocess failed: {e}")
-        
-        # Fallback to API if local failed
-        print("[LLM] Falling back to Cloud API...")
-        try: 
-            return _call_groq(prompt)
-        except Exception as e:
-            print(f"[LLM] Groq fallback failed: {e}")
-    else:
-        print("[LLM] Preference: CLOUD")
-        # Try API first
-        try: 
-            return _call_groq(prompt)
-        except Exception as e:
-            print(f"[LLM] Groq primary call failed: {e}")
-        
-        # Fallback to local
-        print("[LLM] Falling back to Local AI...")
-        try: 
-            return _call_ollama_http(prompt)
-        except Exception as e:
-            print(f"[LLM] Ollama fallback failed: {e}")
+        # Ollama unavailable — use smart mock (NEVER cloud in local mode)
+        print("[LLM] Ollama unavailable in LOCAL mode — using offline knowledge base (no cloud)")
+        return _smart_mock(prompt)
 
-    # ── 3. Smart mock (true last resort for pre-loaded cities) ────────────────
-    print("[LLM] All live AI providers unavailable — using offline knowledge base")
-    return _smart_mock(prompt)
+    else:
+        # ── CLOUD mode: Groq only ─────────────────────────────────────────────────
+        print("[LLM] Mode: CLOUD — Groq API, local BLOCKED")
+        try:
+            return _call_groq(prompt)
+        except Exception as e:
+            print(f"[LLM] Groq failed: {e}")
+        # Groq unavailable — use smart mock (NEVER Ollama in cloud mode)
+        print("[LLM] Groq unavailable in CLOUD mode — using offline knowledge base")
+        return _smart_mock(prompt)
+
+
 def call_vision_llm(image_path: str, prompt: str) -> str:
-    """Entry point for Vision LLM calls (Cloud vs Local)"""
+    """Route a vision LLM call. Strictly respects the mode — no cross-mode fallback."""
     prefer_local = get_prefer_local()
-    
+
     if prefer_local:
         model = get_ollama_vision_model()
-        print(f"[Vision] Preference: LOCAL ({model})")
+        print(f"[Vision] Mode: LOCAL ({model}) — cloud BLOCKED")
         try:
             return _call_ollama_vision(image_path, prompt)
         except Exception as e:
-            print(f"[Vision] Local failed: {e}. Falling back to Cloud...")
-            return _call_groq_vision(image_path, prompt)
+            print(f"[Vision] Ollama vision failed: {e}")
+            return '{"error": "Local vision model unavailable. Start Ollama or switch to Cloud mode."}'
     else:
         model = get_groq_vision_model()
-        print(f"[Vision] Preference: CLOUD ({model})")
+        print(f"[Vision] Mode: CLOUD ({model}) — local BLOCKED")
         try:
             return _call_groq_vision(image_path, prompt)
         except Exception as e:
-            print(f"[Vision] Cloud failed: {e}. Falling back to Local...")
-            return _call_ollama_vision(image_path, prompt)
+            print(f"[Vision] Groq vision failed: {e}")
+            return '{"error": "Cloud vision API unavailable. Check your GROQ_API_KEY in .env or switch to Local mode."}'
 
 def _call_groq_vision(image_path: str, prompt: str) -> str:
     import base64
+    from io import BytesIO
+    from PIL import Image as _Img, ImageOps as _IOps
+
     key = get_groq_key()
     if not key: raise ValueError("No Groq API Key")
 
-    with open(image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    # ── Compress to max 512px JPEG thumbnail before sending ──────────────────
+    # Full-size images can be 5-10 MB. A 512px JPEG is ~20-80 KB.
+    # Vision models don't benefit from higher resolution — this is pure speed win.
+    try:
+        with _Img.open(image_path) as img:
+            img = _IOps.exif_transpose(img)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.thumbnail((512, 512), _Img.Resampling.LANCZOS)
+            buf = BytesIO()
+            img.save(buf, format='JPEG', quality=75)
+            base64_image = base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception:
+        # Fallback: read raw (original behaviour)
+        with open(image_path, "rb") as f:
+            base64_image = base64.b64encode(f.read()).decode('utf-8')
 
     body = json.dumps({
         "model": get_groq_vision_model(),
@@ -545,12 +561,13 @@ def _call_groq_vision(image_path: str, prompt: str) -> str:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
+                    {"type": "text",      "text": prompt},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                 ]
             }
         ],
-        "response_format": {"type": "json_object"}
+        "response_format": {"type": "json_object"},
+        "max_tokens": 256,
     }).encode("utf-8")
 
     req = urllib.request.Request(
