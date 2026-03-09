@@ -8,7 +8,7 @@ from backend.services.image_service import process_uploaded_images
 router = APIRouter()
 
 UPLOAD_DIR   = "data/uploaded_images"
-MAX_FILES    = 50
+MAX_FILES    = 100
 MAX_SIZE_MB  = 50
 MAX_BYTES    = MAX_SIZE_MB * 1024 * 1024
 

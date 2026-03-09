@@ -78,7 +78,7 @@ def video_status():
             "resolution":  "1080×1920 (9:16 vertical)",
             "fps":         60,
             "duration_s":  "10–120 (configurable)",
-            "max_photos":  50,
+            "max_photos":  100,
         },
     }
 

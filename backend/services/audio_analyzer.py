@@ -66,14 +66,8 @@ def _synthetic_beatmap(duration_s: float = 60.0, bpm: float = 120.0) -> BeatMap:
         env = math.sin(t_norm * math.pi) * 0.8 + 0.15
         energy_curve.append(round(min(1.0, env), 4))
 
-    # Sections: intro / exploration / peak / scenic / outro
-    sections = [
-        {"label": "intro",       "start_s": 0.0,  "end_s": 5.0,  "energy_avg": 0.20},
-        {"label": "exploration", "start_s": 5.0,  "end_s": 20.0, "energy_avg": 0.55},
-        {"label": "peak",        "start_s": 20.0, "end_s": 40.0, "energy_avg": 0.90},
-        {"label": "scenic",      "start_s": 40.0, "end_s": 55.0, "energy_avg": 0.50},
-        {"label": "outro",       "start_s": 55.0, "end_s": duration_s, "energy_avg": 0.15},
-    ]
+    # Sections: use the dynamic detector logic
+    sections = _detect_sections(energy_curve, duration_s)
 
     # Cut points: every beat during peak, every other beat elsewhere
     cut_points = []
