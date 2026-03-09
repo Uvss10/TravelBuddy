@@ -120,7 +120,11 @@ def analyze_audio(audio_path: str, target_duration_s: float = 60.0) -> BeatMap:
         # Load up to target_duration_s of audio at native SR
         y, sr = librosa.load(audio_path, sr=None, mono=True,
                              duration=target_duration_s + 2.0)  # +2 s buffer
-        actual_duration = min(len(y) / sr, target_duration_s)
+        
+        # We use target_duration_s as the master timeline length
+        # even if the audio file is shorter (the muxer will loop or pad silent)
+        actual_audio_dur = len(y) / sr
+        master_duration  = target_duration_s
 
         # ── BPM + beat frames ────────────────────────────────────────────────
         tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, units="frames")
@@ -128,13 +132,21 @@ def analyze_audio(audio_path: str, target_duration_s: float = 60.0) -> BeatMap:
         bpm = max(40.0, min(240.0, bpm))  # sanity clamp
 
         beat_times_raw = librosa.frames_to_time(beat_frames, sr=sr).tolist()
-        beat_times = [round(t, 4) for t in beat_times_raw if t <= actual_duration]
+        beat_times = [round(t, 4) for t in beat_times_raw if t <= actual_audio_dur]
 
         # ── RMS energy curve (sampled every 0.5 s) ───────────────────────────
+        # Ensure energy curve covers the FULL target duration
+        n_samples = int(master_duration / 0.5)
         hop = int(sr * 0.5)
         rms = librosa.feature.rms(y=y, hop_length=hop)[0]
         rms_norm = rms / (rms.max() + 1e-8)
-        energy_curve = [round(float(e), 4) for e in rms_norm[:int(actual_duration / 0.5)]]
+        
+        energy_curve = [round(float(e), 4) for e in rms_norm]
+        # Pad with silence if audio is shorter than master_duration
+        if len(energy_curve) < n_samples:
+            energy_curve.extend([0.05] * (n_samples - len(energy_curve)))
+        else:
+            energy_curve = energy_curve[:n_samples]
 
         # Smooth energy with a 3-sample moving average
         smoothed = []
@@ -144,14 +156,14 @@ def analyze_audio(audio_path: str, target_duration_s: float = 60.0) -> BeatMap:
         energy_curve = smoothed
 
         # ── Section detection ────────────────────────────────────────────────
-        sections = _detect_sections(energy_curve, actual_duration)
+        sections = _detect_sections(energy_curve, master_duration)
 
         # ── Cut points: beat-aligned, density driven by energy ──────────────
-        cut_points = _build_cut_points(beat_times, energy_curve, actual_duration)
+        cut_points = _build_cut_points(beat_times, energy_curve, master_duration)
 
         return BeatMap(
             bpm=bpm,
-            duration_s=actual_duration,
+            duration_s=master_duration,
             beat_times=beat_times,
             energy_curve=energy_curve,
             sections=sections,

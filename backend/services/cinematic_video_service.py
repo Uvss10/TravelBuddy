@@ -268,11 +268,13 @@ def _mux_audio(video_path: str, audio_path: str, out_path: str, duration_s: int 
     cmd = [
         ffmpeg, "-y",
         "-i", video_path,
+        "-stream_loop", "-1",  # Loop audio if shorter than video
         "-i", audio_path,
         "-c:v", "copy",
         "-c:a", "aac", "-b:a", "192k",
         "-t", str(duration_s),
-        "-shortest",
+        "-map", "0:v:0",       # Use video from first input
+        "-map", "1:a:0",       # Use audio from second input
         out_path,
     ]
     print(f"[Audio] Muxing: {ffmpeg} ...")
