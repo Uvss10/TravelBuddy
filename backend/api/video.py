@@ -52,8 +52,8 @@ class CinematicRequest(BaseModel):
                                          description="Server-side path to music file for beat sync.")
     lrc_content  : Optional[str] = Field(default=None,
                                          description="Raw .lrc lyric file contents for lyric overlay.")
-    duration_s   : int        = Field(default=30, ge=10, le=120,
-                                      description="Reel duration in seconds (default 30, max 120).")
+    duration_s   : int        = Field(default=60, ge=10, le=120,
+                                      description="Reel duration in seconds (default 60, max 120).")
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -75,9 +75,9 @@ def video_status():
         "available_engines": engines,
         "themes":           list_themes(),
         "output_spec": {
-            "resolution":  "720×1280 (9:16 vertical)",
-            "fps":         30,
-            "duration_s":  "10–60 (configurable)",
+            "resolution":  "1080×1920 (9:16 vertical)",
+            "fps":         60,
+            "duration_s":  "10–120 (configurable)",
             "max_photos":  50,
         },
     }
