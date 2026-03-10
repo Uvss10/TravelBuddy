@@ -136,6 +136,10 @@ dropZone?.addEventListener('drop', (e) => {
 // ── Add files (validate, dedup, limit) ───────────────────────────────────────
 function addFiles(files) {
     showErr('uploadErr', '');
+    state.analysed = [];
+    state.storyData = null; // Clear stale story
+    $('reelStep2')?.classList.add('hidden');
+    $('reelStep3')?.classList.add('hidden');
     let skipped = 0, skippedNames = [];
 
     for (const f of files) {
@@ -244,10 +248,32 @@ function renderGrid() {
 
 function removePhoto(i) {
     state.photos.splice(i, 1);
+    state.analysed = [];
+    state.storyData = null;
+    $('reelStep2')?.classList.add('hidden');
+    $('reelStep3')?.classList.add('hidden');
     renderGrid();
 }
 
-$('clearBtn')?.addEventListener('click', () => { state.photos = []; renderGrid(); showErr('uploadErr', ''); });
+$('clearBtn')?.addEventListener('click', async () => {
+    state.photos = [];
+    state.analysed = [];
+    state.storyData = null;
+    localStorage.removeItem('tb_server_paths');
+
+    // Hide following sections as they are now stale
+    $('reelStep2')?.classList.add('hidden');
+    $('reelStep3')?.classList.add('hidden');
+    $('videoPlayerWrap').style.display = 'none';
+
+    renderGrid();
+    showErr('uploadErr', '');
+
+    // Call backend to wipe folders
+    try { fetch(`${API}/images/clear`, { method: 'POST' }); } catch (_) { }
+
+    showToast('🧹 All data cleared (Local & Server)');
+});
 
 // ── Analyse & Generate ────────────────────────────────────────────────────────
 $('analyseBtn')?.addEventListener('click', async () => {
@@ -649,28 +675,9 @@ $('cinematicReelBtn')?.addEventListener('click', async () => {
     $('videoPlayerWrap').style.display = 'none';
     setProgress(2, '🔍 Preparing photos…');
 
+    const LS_KEY = 'tb_server_paths';
     try {
-        // ── 4-priority photo path resolution (robust, localStorage-cached) ────
-        // P0: localStorage cache  — survives page reload, set after every success
-        // P1: state.analysed      — from prior Analyse click this session
-        // P2: auto-upload browser files — only if photos dropped in step 1
-        // P3: GET /images/list    — photos already on server (with retry)
-        // Shows real error reason if all fail.
-
-        const LS_KEY = 'tb_server_paths';
-
-        // P0: try localStorage cache first
-        if (serverPaths.length === 0) {
-            try {
-                const cached = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-                if (Array.isArray(cached) && cached.length > 0) {
-                    serverPaths = cached;
-                    setProgress(4, `📂 Loaded ${serverPaths.length} photo paths from cache.`);
-                }
-            } catch (_) { }
-        }
-
-        // P2: auto-upload browser files if still no paths
+        // P1: auto-upload browser files if still no paths
         if (serverPaths.length === 0 && state.photos.length > 0) {
             setProgress(6, `📤 Uploading ${state.photos.length} photo(s) to server…`);
             try {
@@ -693,29 +700,27 @@ $('cinematicReelBtn')?.addEventListener('click', async () => {
             }
         }
 
-        // P3: GET /images/list — retry up to 3 times with 1s gap
-        if (serverPaths.length === 0) {
-            setProgress(5, '🔎 Checking server for existing photos…');
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                try {
-                    const lr = await fetch(`${API}/images/list`, {
-                        signal: AbortSignal.timeout(8_000),
-                    });
-                    if (lr.ok) {
-                        const listData = await lr.json();
-                        serverPaths = (listData.images || []).slice(0, 100);
-                        if (serverPaths.length > 0) {
-                            setProgress(8, `✅ Found ${serverPaths.length} photos on server.`);
-                            break;
-                        }
-                    } else {
-                        console.warn(`[Cinematic] /images/list attempt ${attempt} → HTTP ${lr.status}`);
-                    }
-                } catch (listErr) {
-                    console.warn(`[Cinematic] /images/list attempt ${attempt} failed:`, listErr.message);
-                    if (attempt < 3) await new Promise(r => setTimeout(r, 1000));
+        // P2: try localStorage cache ONLY if the session is totally fresh (no photos uploaded yet)
+        if (serverPaths.length === 0 && state.photos.length === 0) {
+            try {
+                const cached = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+                if (Array.isArray(cached) && cached.length > 0) {
+                    serverPaths = cached;
+                    setProgress(4, `📂 Loaded ${serverPaths.length} photo paths from cache.`);
                 }
-            }
+            } catch (_) { }
+        }
+
+        // P3: GET /images/list — only if we have NO active session photos
+        if (serverPaths.length === 0 && state.photos.length === 0) {
+            setProgress(5, '🔎 Checking server for existing photos…');
+            try {
+                const lr = await fetch(`${API}/images/list`);
+                if (lr.ok) {
+                    const d = await lr.json();
+                    serverPaths = (d.images || []).slice(0, 100);
+                }
+            } catch (_) { }
         }
 
         // Save to localStorage for next session
@@ -795,7 +800,7 @@ $('cinematicReelBtn')?.addEventListener('click', async () => {
 
                         if (s.video_url) {
                             const vid = $('generatedVideo');
-                            vid.src = `${API}${s.video_url}`;
+                            vid.src = `${API}${s.video_url}?t=${Date.now()}`;
                             $('videoPlayerWrap').style.display = 'block';
                             vid.play().catch(() => { });
 

@@ -16,7 +16,7 @@ from models.vision.loader import load_image_for_analysis
 from backend import utils
 
 SELECTED_DIR = "data/selected_images"
-TOP_N = 50 # Increase to 50 to ensure ALL photos in the reel are optimized and browser-readable
+TOP_N = 100 # Match the 100 photo limit for reels
 TARGET_RES = (1080, 1920) 
 
 def normalize(value, min_val, max_val):

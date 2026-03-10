@@ -8,9 +8,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from backend.api import itinerary, image_analysis, story, video, health
 
 app = FastAPI(
-    title       = "TravelBuddy API",
-    description = "Offline-capable travel reel & itinerary generation API",
-    version     = "2.0.1", # Updated to trigger reload
+    title       = "TravelBuddy Pro API",
+    description = "True Cinematic 1-minute reel generation with beat-sync",
+    version     = "2.0.4",
 )
 
 # ── Upload size limit: 100 photos × 50 MB = 5 000 MB max body ──────────────────

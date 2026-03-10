@@ -35,11 +35,15 @@ class TripProvider extends ChangeNotifier {
   // ─── Image selection ─────────────────────────────────────────────────────────
   void setImages(List<File> files) {
     _selectedImages = files;
+    _imageState = LoadState.idle;
+    _processingStep = 0;
     notifyListeners();
   }
 
   void removeImage(int index) {
     _selectedImages.removeAt(index);
+    _imageState = LoadState.idle;
+    _processingStep = 0;
     notifyListeners();
   }
 

@@ -21,7 +21,12 @@ async def upload_images(files: List[UploadFile] = File(...)):
             detail=f"Too many files. Maximum {MAX_FILES} photos per request."
         )
 
+    # Clear previous uploads to ensure no photo "ghosting" from past trips
+    for d in [UPLOAD_DIR, "data/selected_images"]:
+        if os.path.exists(d):
+            shutil.rmtree(d)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
+    
     saved_files = []
 
     for file in files:
@@ -36,9 +41,11 @@ async def upload_images(files: List[UploadFile] = File(...)):
         if not is_image:
             continue  # silently skip non-image files
 
-        # Read in chunks to enforce 50 MB limit without loading all into RAM
+        # Use a unique timestamp to prevent name collisions across different trips
+        import time
         safe_name  = os.path.basename(file.filename or "image")
-        file_path  = os.path.join(UPLOAD_DIR, safe_name)
+        unique_name = f"{int(time.time_ns())}_{safe_name}"
+        file_path  = os.path.join(UPLOAD_DIR, unique_name)
         total_size = 0
 
         try:
@@ -56,6 +63,7 @@ async def upload_images(files: List[UploadFile] = File(...)):
         except HTTPException:
             raise
         except Exception as e:
+            print(f"[Upload] Error saving {safe_name}: {e}")
             continue  # skip files that fail to save
 
         saved_files.append(file_path)
@@ -87,3 +95,13 @@ def list_uploaded_images():
                 }:
                     paths.append(os.path.join(directory, fname).replace("\\", "/"))
     return {"images": paths, "count": len(paths)}
+@router.post("/clear")
+def clear_images():
+    """
+    Manually clear all uploaded and refined images from the server.
+    """
+    for d in [UPLOAD_DIR, "data/selected_images"]:
+        if os.path.exists(d):
+            shutil.rmtree(d)
+        os.makedirs(d, exist_ok=True)
+    return {"status": "success", "message": "All images cleared from server."}
