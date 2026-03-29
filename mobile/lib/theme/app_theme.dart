@@ -5,20 +5,20 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
-  // ── Color Palette (TravelBuddy Thematic) ──────────────────────────────────
-  static const Color primaryColor = Color(0xFF0D3B66);      // Deep Ocean Blue
-  static const Color primaryDark = Color(0xFF082643);       // Navy
-  static const Color primaryLight = Color(0xFF4A8BCC);      // Sea Blue
-  static const Color accentColor = Color(0xFFFF7E67);       // Sunset Orange
-  static const Color accentLight = Color(0xFFFFA596);       // Soft Sunset
-  static const Color successColor = Color(0xFF2A9D8F);      // Teal/Green
-  static const Color errorColor = Color(0xFFE76F51);        // Coral Red
-  static const Color textColor = Color(0xFF14213D);         // Deep Navy/Black
-  static const Color mutedColor = Color(0xFF7A869A);        // Muted Grey/Blue
-  static const Color hintColor = Color(0xFFA1AABB);         // Sand Grey
+  // ── Color Palette (TravelBuddy Brand Sync) ──────────────────────────────────
+  static const Color primaryColor = Color(0xFF2563EB);      // Vibrant Blue
+  static const Color primaryDark = Color(0xFF1E40AF);       // Dark Blue
+  static const Color primaryLight = Color(0xFF60A5FA);      // Sky Blue
+  static const Color accentColor = Color(0xFFF59E0B);       // Golden Amber
+  static const Color accentLight = Color(0xFFFCD34D);       // Soft Amber
+  static const Color successColor = Color(0xFF16A34A);      // Emerald Green
+  static const Color errorColor = Color(0xFFDC2626);        // Bright Red
+  static const Color textColor = Color(0xFF0F172A);         // Slate Deep
+  static const Color mutedColor = Color(0xFF64748B);        // Slate Muted
+  static const Color hintColor = Color(0xFF94A3B8);         // Slate Light
   static const Color surfaceColor = Color(0xFFFFFFFF);      // White
-  static const Color bgColor = Color(0xFFF9F8F6);           // Sandstone White
-  static const Color borderColor = Color(0xFFE8E5DF);       // Warm Border
+  static const Color bgColor = Color(0xFFF8FAFC);           // Off White
+  static const Color borderColor = Color(0xFFE2E8F0);       // Light Slate Border
   
   // ── Dark Theme Colors ──────────────────────────────────────────────────────
   static const Color darkTextColor = Color(0xFFF1F5F9);

@@ -22,7 +22,13 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   String _budget = 'Medium';
   final _budgets = ['Low', 'Medium', 'High'];
 
-  final _moods = ['Adventure', 'Relaxation', 'Culture', 'Foodie', 'Nature', 'History', 'Nightlife'];
+  final _moods = [
+    'Food & Street Food', 'History & Heritage', 'Nature & Parks', 
+    'Adventure & Trekking', 'Photography', 'Nightlife & Bars', 
+    'Shopping & Markets', 'Culture & Festivals', 'Wellness & Yoga', 
+    'Beaches & Water Sports', 'Hidden Gems', 'Architecture', 
+    'Luxury & Relaxation', 'Art & Museums', 'Local Life', 'Offbeat Trails'
+  ];
   final Set<String> _selectedMoods = {};
 
   bool _loading = false;

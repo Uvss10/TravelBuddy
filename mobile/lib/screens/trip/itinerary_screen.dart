@@ -1,17 +1,29 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../models/trip_model.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 
 /// Rich itinerary view with summary metrics + day timeline cards.
-class ItineraryScreen extends StatelessWidget {
+/// Includes Mind Map, Budget breakdown, and Tweak field for web parity.
+class ItineraryScreen extends StatefulWidget {
   final TripModel? trip;
   const ItineraryScreen({super.key, this.trip});
 
+  @override
+  State<ItineraryScreen> createState() => _ItineraryScreenState();
+}
+
+class _ItineraryScreenState extends State<ItineraryScreen> {
+  final TextEditingController _tweakController = TextEditingController();
+  bool _isTweaking = false;
+
   _ItineraryViewData _buildViewData() {
-    final raw = trip?.itineraryOutput;
+    final raw = widget.trip?.itineraryOutput;
     if (raw == null || raw.isEmpty) {
       return const _ItineraryViewData(days: [], payload: null);
     }
@@ -35,18 +47,36 @@ class ItineraryScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _applyTweak() async {
+    if (_tweakController.text.trim().isEmpty) return;
+    setState(() => _isTweaking = true);
+    // In a real app, this would call the API. For now, mocking simulation.
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      setState(() {
+        _isTweaking = false;
+        _tweakController.clear();
+      });
+      Fluttertoast.showToast(
+        msg: 'Tweak applied! (Simulation)',
+        backgroundColor: AppTheme.success,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final view = _buildViewData();
     final summary = (view.payload?['trip_summary'] as Map<String, dynamic>?) ?? const {};
+    final budgetData = (view.payload?['budget_breakdown'] as Map<String, dynamic>?) ?? const {};
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(trip?.destination ?? 'Itinerary'),
+        title: Text(widget.trip?.destination ?? 'Itinerary'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.story, arguments: trip),
-            child: const Text('Story ->'),
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () {}, // Share functionality
           ),
         ],
       ),
@@ -57,28 +87,55 @@ class ItineraryScreen extends StatelessWidget {
               subtitle: 'The AI could not parse the itinerary. Try generating again.',
             )
           : ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               children: [
-                _SummaryHero(trip: trip, summary: summary),
+                _SummaryHero(trip: widget.trip, summary: summary)
+                    .animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
                 const SizedBox(height: 16),
-                _MetricsStrip(trip: trip, summary: summary),
-                const SizedBox(height: 16),
-                _DayActivityGraph(days: view.days),
-                const SizedBox(height: 18),
+                _MetricsStrip(trip: widget.trip, summary: summary)
+                    .animate().fadeIn(delay: 100.ms),
+                const SizedBox(height: 24),
+
+                // ── Mind Map Section (Web Parity) ──
+                const TBSectionHeader(title: '🧠 Visual Mind Map'),
+                const SizedBox(height: 12),
+                _MindMapView(days: view.days, destination: widget.trip?.destination ?? 'Trip'),
+                const SizedBox(height: 32),
+
+                // ── Day Timeline ──
+                const TBSectionHeader(title: '🗺️ Day-wise Journey'),
+                const SizedBox(height: 12),
                 ...view.days.asMap().entries.map(
                   (entry) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _DayCard(
                       day: entry.value,
                       dayIndex: entry.key,
-                    ),
+                    ).animate().fadeIn(delay: (200 + entry.key * 100).ms),
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
+
+                // ── Budget Section (Web Parity) ──
+                const TBSectionHeader(title: '💰 Estimated Budget'),
+                const SizedBox(height: 12),
+                _BudgetBreakdown(budget: budgetData),
+                const SizedBox(height: 32),
+
+                // ── Tweak Plan (Web Parity) ──
+                const TBSectionHeader(title: '✏️ Tweak this Plan'),
+                const SizedBox(height: 12),
+                _TweakPanel(
+                  controller: _tweakController,
+                  isTweaking: _isTweaking,
+                  onApply: _applyTweak,
+                ),
+
+                const SizedBox(height: 32),
                 TBPrimaryButton(
-                  label: 'View Story & Reel',
-                  onPressed: () => Navigator.pushNamed(context, AppRoutes.story, arguments: trip),
-                  icon: Icons.play_circle_outline,
+                  label: 'Generate Reel Story',
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.story, arguments: widget.trip),
+                  icon: Icons.movie_outlined,
                 ),
                 const SizedBox(height: 40),
               ],
@@ -90,7 +147,6 @@ class ItineraryScreen extends StatelessWidget {
 class _ItineraryViewData {
   final List<ItineraryDay> days;
   final Map<String, dynamic>? payload;
-
   const _ItineraryViewData({required this.days, required this.payload});
 }
 
@@ -102,16 +158,20 @@ class _SummaryHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final destination = (summary['destination'] ?? trip?.destination ?? '').toString();
-    final routeFocus = (summary['optimization_focus'] ?? 'Route-efficient plan').toString();
+    final tagline = (summary['tagline'] ?? 'A journey worth telling').toString();
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          colors: [AppTheme.primary, AppTheme.primary.withAlpha(200)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primary.withAlpha(60),
+            color: AppTheme.primary.withAlpha(80),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -120,20 +180,37 @@ class _SummaryHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'DESTINATION',
+                style: TextStyle(
+                  color: Colors.white.withAlpha(180),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
-            destination.isEmpty ? 'Your Smart Plan' : destination,
+            destination.isEmpty ? 'Your Adventure' : destination,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            routeFocus,
+            tagline,
             style: TextStyle(
               color: Colors.white.withAlpha(230),
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -151,124 +228,248 @@ class _MetricsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final duration = (summary['duration_days'] ?? trip?.days ?? 0).toString();
-    final cost = (summary['estimated_total_trip_cost'] ?? trip?.budget ?? '-').toString();
-    final travelTime = (summary['estimated_total_travel_time'] ?? '-').toString();
+    final style = (summary['travel_style'] ?? (trip?.interests.isNotEmpty == true ? trip!.interests.first : '-')).toString().toUpperCase();
     final intensityRaw = (summary['intensity_score'] ?? '5').toString();
     final intensity = double.tryParse(intensityRaw) ?? 5;
-    final normalizedIntensity = (intensity / 10).clamp(0.0, 1.0);
 
     return TBCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Row(
-            children: [
-              Expanded(child: _MetricTile(label: 'Days', value: duration)),
-              const SizedBox(width: 10),
-              Expanded(child: _MetricTile(label: 'Est. Cost', value: cost)),
-              const SizedBox(width: 10),
-              Expanded(child: _MetricTile(label: 'Travel Time', value: travelTime)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Intensity',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              minHeight: 8,
-              value: normalizedIntensity,
-              backgroundColor: AppTheme.borderLight,
-              color: AppTheme.accent,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${intensity.toStringAsFixed(0)} / 10',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          _MetricItem(label: 'DAYS', value: duration, icon: Icons.calendar_today_outlined),
+          _MetricItem(label: 'STYLE', value: style, icon: Icons.explore_outlined),
+          _MetricItem(label: 'INTENSITY', value: '$intensity/10', icon: Icons.timer_outlined),
         ],
       ),
     );
   }
 }
 
-class _MetricTile extends StatelessWidget {
+class _MetricItem extends StatelessWidget {
   final String label;
   final String value;
-  const _MetricTile({required this.label, required this.value});
+  final IconData icon;
+  const _MetricItem({required this.label, required this.value, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, size: 18, color: AppTheme.primary),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppTheme.textHint),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+/// A horizontally scrollable hierarchy view of the trip.
+class _MindMapView extends StatelessWidget {
+  final List<ItineraryDay> days;
+  final String destination;
+  const _MindMapView({required this.days, required this.destination});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      height: 180,
       decoration: BoxDecoration(
         color: AppTheme.bgLight,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderLight),
+      ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(20),
+        itemCount: days.length,
+        itemBuilder: (context, index) {
+          final isFirst = index == 0;
+          final isLast = index == days.length - 1;
+          final day = days[index];
+
+          return Row(
+            children: [
+              if (isFirst) ...[
+                _MindMapNode(label: destination, isRoot: true),
+                _MindMapConnector(),
+              ],
+              _MindMapNode(
+                label: day.label,
+                sublabel: '${day.activities.length} stops',
+                isRoot: false,
+              ),
+              if (!isLast) _MindMapConnector(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MindMapNode extends StatelessWidget {
+  final String label;
+  final String? sublabel;
+  final bool isRoot;
+  const _MindMapNode({required this.label, this.sublabel, this.isRoot = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      constraints: const BoxConstraints(minWidth: 100),
+      decoration: BoxDecoration(
+        color: isRoot ? AppTheme.primary : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isRoot ? AppTheme.primary : AppTheme.borderLight),
+        boxShadow: isRoot ? [BoxShadow(color: AppTheme.primary.withAlpha(50), blurRadius: 10)] : null,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary)),
-          const SizedBox(height: 2),
           Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isRoot ? Colors.white : AppTheme.textPrimary,
+            ),
           ),
+          if (sublabel != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              sublabel!,
+              style: const TextStyle(fontSize: 10, color: AppTheme.textHint),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _DayActivityGraph extends StatelessWidget {
-  final List<ItineraryDay> days;
-  const _DayActivityGraph({required this.days});
+class _MindMapConnector extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 2,
+      color: AppTheme.borderLight,
+    );
+  }
+}
+
+class _BudgetBreakdown extends StatelessWidget {
+  final Map<String, dynamic> budget;
+  const _BudgetBreakdown({required this.budget});
 
   @override
   Widget build(BuildContext context) {
-    final maxCount = days.fold<int>(1, (prev, day) => day.activities.length > prev ? day.activities.length : prev);
+    final accommodation = budget['accommodation'] ?? '-';
+    final food = budget['food'] ?? '-';
+    final transport = budget['transport'] ?? '-';
+    final misc = budget['misc'] ?? '-';
 
     return TBCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Activity Distribution', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          ...days.map((day) {
-            final ratio = (day.activities.length / maxCount).clamp(0.0, 1.0);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 58,
-                    child: Text(day.label, style: Theme.of(context).textTheme.bodySmall),
-                  ),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        minHeight: 8,
-                        value: ratio,
-                        backgroundColor: AppTheme.borderLight,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('${day.activities.length}', style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            );
-          }),
+          _BudgetItem(label: 'Accommodation', value: accommodation, icon: Icons.hotel_outlined),
+          const Divider(height: 20),
+          _BudgetItem(label: 'Food & Dining', value: food, icon: Icons.restaurant_outlined),
+          const Divider(height: 20),
+          _BudgetItem(label: 'Local Transport', value: transport, icon: Icons.directions_bus_outlined),
+          const Divider(height: 20),
+          _BudgetItem(label: 'Miscellaneous', value: misc, icon: Icons.shopping_bag_outlined),
         ],
       ),
+    );
+  }
+}
+
+class _BudgetItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  const _BudgetItem({required this.label, required this.value, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppTheme.textHint),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        const Spacer(),
+        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primary)),
+      ],
+    );
+  }
+}
+
+class _TweakPanel extends StatelessWidget {
+  final TextEditingController controller;
+  final bool isTweaking;
+  final VoidCallback onApply;
+
+  const _TweakPanel({
+    required this.controller,
+    required this.isTweaking,
+    required this.onApply,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Is something not quite right? Tell the AI what to change.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textHint),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 2,
+                style: const TextStyle(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Add more food stalls or make it slower...',
+                  fillColor: AppTheme.bgLight,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TBPrimaryButton(
+                label: 'Apply Modification',
+                onPressed: isTweaking ? null : onApply,
+                isLoading: isTweaking,
+                icon: Icons.auto_awesome_outlined,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -298,86 +499,71 @@ class _DayCardState extends State<_DayCard> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.primary.withAlpha(20),
+                      shape: BoxShape.circle,
                     ),
                     child: Text(
-                      widget.day.label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                      '${widget.dayIndex + 1}',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppTheme.primary),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '${widget.day.activities.length} stops',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.day.label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      Text('${widget.day.activities.length} major stops', style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
+                    ],
                   ),
                 ],
               ),
               Icon(
                 _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 color: AppTheme.textHint,
+                size: 20,
               ),
             ],
           ),
           if (_expanded) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             const Divider(height: 1),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             ...widget.day.activities.asMap().entries.map((entry) {
               final index = entry.key;
               final activity = entry.value;
               final isLast = index == widget.day.activities.length - 1;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      children: [
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: [
+                      Container(
+                        width: 8, height: 8,
+                        margin: const EdgeInsets.only(top: 6),
+                        decoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
+                      ),
+                      if (!isLast)
                         Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withAlpha(20),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.primary.withAlpha(80)),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                            ),
-                          ),
+                          width: 1, height: 40,
+                          margin: const EdgeInsets.symmetric(vertical: 2),
+                          color: AppTheme.borderLight,
                         ),
-                        if (!isLast)
-                          Container(
-                            width: 2,
-                            height: 26,
-                            color: AppTheme.borderLight,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgLight,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.borderLight),
-                        ),
-                        child: Text(activity, style: Theme.of(context).textTheme.bodyMedium),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        activity,
+                        style: const TextStyle(fontSize: 14, height: 1.5, fontWeight: FontWeight.w500),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               );
             }),
           ],
