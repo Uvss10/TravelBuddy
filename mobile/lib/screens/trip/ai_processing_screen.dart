@@ -42,15 +42,25 @@ class _AiProcessingScreenState extends State<AiProcessingScreen>
     final provider = context.read<TripProvider>();
     final destination = widget.tripData['destination'] as String? ?? '';
     final sceneTags  = (widget.tripData['scene_tags'] as List?)?.cast<String>() ?? ['travel'];
+    final tone = widget.tripData['tone'] as String? ?? 'adventurous and inspiring';
+    final sourceFlow = widget.tripData['source_flow'] as String? ?? 'itinerary';
 
-    final ok = await provider.processAll(destination: destination, sceneTags: sceneTags);
+    final ok = await provider.processAll(
+      destination: destination,
+      sceneTags: sceneTags,
+      tone: tone,
+    );
     if (!mounted) return;
 
     if (ok) {
       _pulseCtrl.stop();
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, AppRoutes.itinerary, arguments: provider.currentTrip);
+      if (sourceFlow == 'reel') {
+        Navigator.pushReplacementNamed(context, AppRoutes.reelPreview);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.itinerary, arguments: provider.currentTrip);
+      }
     } else {
       setState(() => _failed = true);
       _pulseCtrl.stop();
@@ -66,6 +76,8 @@ class _AiProcessingScreenState extends State<AiProcessingScreen>
   @override
   Widget build(BuildContext context) {
     final step = context.watch<TripProvider>().processingStep;
+    final destination = widget.tripData['destination'] as String? ?? '-';
+    final tone = widget.tripData['tone'] as String? ?? 'adventurous and inspiring';
 
     return Scaffold(
       body: SafeArea(
@@ -96,6 +108,20 @@ class _AiProcessingScreenState extends State<AiProcessingScreen>
               Text(
                 'This may take a few seconds.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgLight,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderLight),
+                ),
+                child: Text(
+                  'Destination: $destination  •  Tone: $tone',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
               ),
               const SizedBox(height: 48),
 

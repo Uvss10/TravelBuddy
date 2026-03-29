@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/trip_model.dart';
 import '../services/api_service.dart';
+import '../config/api_config.dart';
 
 /// Loading state enum for UI feedback.
 enum LoadState { idle, loading, success, error }
@@ -20,6 +21,9 @@ class TripProvider extends ChangeNotifier {
   List<File> _selectedImages   = [];
   String? _errorMessage;
   int _processingStep = 0; // 0=analyzing, 1=story, 2=reel
+  String? _generatedVideoUrl;
+  String? _videoEngine;
+  String? _videoMessage;
 
   // ─── Getters ─────────────────────────────────────────────────────────────────
   LoadState get itineraryState => _itineraryState;
@@ -31,6 +35,48 @@ class TripProvider extends ChangeNotifier {
   String? get errorMessage        => _errorMessage;
   int get processingStep          => _processingStep;
   bool get isFullyProcessed       => _currentTrip?.storyTitle != null;
+  String? get generatedVideoUrl   => _generatedVideoUrl;
+  String? get videoEngine         => _videoEngine;
+  String? get videoMessage        => _videoMessage;
+
+  String _normalizeVideoUrl(String rawUrl) {
+    if (rawUrl.isEmpty) return rawUrl;
+
+    if (!rawUrl.startsWith('http')) {
+      return '${ApiConfig.baseUrl}$rawUrl';
+    }
+
+    final raw = Uri.tryParse(rawUrl);
+    final base = Uri.tryParse(ApiConfig.baseUrl);
+    if (raw == null || base == null) return rawUrl;
+
+    // Backend may return localhost/127.0.0.1 URLs that are unreachable from phone.
+    if (raw.host == '127.0.0.1' || raw.host == 'localhost' || raw.host == '0.0.0.0') {
+      return base
+          .replace(
+            path: raw.path,
+            query: raw.query.isEmpty ? null : raw.query,
+            fragment: raw.fragment.isEmpty ? null : raw.fragment,
+          )
+          .toString();
+    }
+
+    return rawUrl;
+  }
+
+  void _ensureCurrentTripForReel({
+    required String destination,
+    required List<String> sceneTags,
+  }) {
+    _currentTrip ??= TripModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      destination: destination,
+      days: 0,
+      budget: 'Medium',
+      interests: sceneTags,
+      createdAt: DateTime.now(),
+    );
+  }
 
   // ─── Image selection ─────────────────────────────────────────────────────────
   void setImages(List<File> files) {
@@ -84,6 +130,15 @@ class TripProvider extends ChangeNotifier {
     required List<String> sceneTags,
     String tone = 'adventurous and inspiring',
   }) async {
+    _errorMessage = null;
+    _generatedVideoUrl = null;
+    _videoEngine = null;
+    _videoMessage = null;
+
+    List<String> serverImagePaths = [];
+
+    _ensureCurrentTripForReel(destination: destination, sceneTags: sceneTags);
+
     // Step 0: Analysing Images
     if (_selectedImages.isNotEmpty) {
       _processingStep = 0;
@@ -96,6 +151,11 @@ class TripProvider extends ChangeNotifier {
         _errorMessage = imgResult.error;
         notifyListeners();
         return false;
+      }
+
+      final analysis = imgResult.data?['analysis_results'];
+      if (analysis is Map<String, dynamic>) {
+        serverImagePaths = List<String>.from(analysis['selected_images'] ?? const []);
       }
     }
 
@@ -111,7 +171,10 @@ class TripProvider extends ChangeNotifier {
     );
 
     if (storyResult.isSuccess) {
-      _currentTrip = _currentTrip?.copyWithStory(storyResult.data!) ?? _currentTrip;
+      if (_currentTrip == null) {
+        _ensureCurrentTripForReel(destination: destination, sceneTags: sceneTags);
+      }
+      _currentTrip = _currentTrip?.copyWithStory(storyResult.data!);
       _storyState = LoadState.success;
     } else {
       _errorMessage = storyResult.error;
@@ -124,16 +187,50 @@ class TripProvider extends ChangeNotifier {
     _processingStep = 2;
     notifyListeners();
 
-    if (_currentTrip != null && _selectedImages.isNotEmpty) {
+    if (_selectedImages.isNotEmpty) {
+      if (serverImagePaths.isEmpty) {
+        _errorMessage = 'No server-side selected images were returned for reel generation.';
+        _storyState = LoadState.error;
+        notifyListeners();
+        return false;
+      }
+
       // Build captions list from story (if available)
       final captions = _currentTrip?.captions ?? [];
-      await _api.generateVideo(
-        imagePaths : [], // backend will use its stored paths from the upload
+      final videoResult = await _api.generateVideo(
+        imagePaths : serverImagePaths,
         captions   : captions,
         destination: destination,
       );
-      // Note: if backend returns js_canvas fallback, ReelPreviewScreen
-      // uses the client-side Canvas generator — no extra action needed here.
+
+      if (videoResult.isSuccess) {
+        final data = videoResult.data ?? {};
+        _videoEngine = data['engine']?.toString();
+        _videoMessage = data['message']?.toString();
+
+        final status = data['status']?.toString().toLowerCase();
+
+        final rawUrl = data['video_url']?.toString();
+        if (rawUrl != null && rawUrl.isNotEmpty) {
+          _generatedVideoUrl = _normalizeVideoUrl(rawUrl);
+        }
+
+        // Mobile app cannot run the web js_canvas fallback engine.
+        if (_generatedVideoUrl == null || _generatedVideoUrl!.isEmpty) {
+          _errorMessage = _videoMessage ?? 'Video generation did not return a playable URL.';
+          if ((_videoEngine ?? '').toLowerCase() == 'js_canvas' || status == 'fallback') {
+            _errorMessage =
+                'Server returned web-only fallback (js_canvas). Install ffmpeg/moviepy on backend to enable mobile playback.';
+          }
+          notifyListeners();
+          return false;
+        }
+      } else {
+        _videoMessage = videoResult.error;
+        _errorMessage = videoResult.error;
+        notifyListeners();
+        return false;
+      }
     }
 
     // Save to history
@@ -153,6 +250,9 @@ class TripProvider extends ChangeNotifier {
     _selectedImages = [];
     _errorMessage   = null;
     _processingStep = 0;
+    _generatedVideoUrl = null;
+    _videoEngine = null;
+    _videoMessage = null;
     notifyListeners();
   }
 }

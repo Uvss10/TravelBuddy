@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/trip_provider.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/common_widgets.dart';
 
 /// Reel preview screen — video player with caption overlay.
 /// Uses a placeholder video URL (replace with real generated reel URL).
@@ -19,10 +19,7 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
   bool _initialized = false;
   bool _hasError = false;
   int _captionIndex = 0;
-
-  // Demo video URL — replace with real backend reel URL
-  // static const _demoUrl = 'http://10.0.2.2:8000/video/reel.mp4';
-  static const _demoUrl = 'https://www.w3schools.com/html/mov_bbb.mp4';
+  String? _activeVideoUrl;
 
   @override
   void initState() {
@@ -31,19 +28,53 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
   }
 
   Future<void> _initVideo() async {
+    final provider = context.read<TripProvider>();
+    _activeVideoUrl = provider.generatedVideoUrl;
+
+    if (_activeVideoUrl == null || _activeVideoUrl!.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _initialized = false;
+          _hasError = true;
+        });
+      }
+      return;
+    }
+
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(_demoUrl));
+      _controller?.removeListener(_captionTick);
+      await _controller?.dispose();
+
+      _controller = VideoPlayerController.networkUrl(Uri.parse(_activeVideoUrl!));
       await _controller!.initialize();
       _controller!.setLooping(true);
       _controller!.play();
 
       // Auto-rotate captions
       _controller!.addListener(_captionTick);
+      _controller!.addListener(() {
+        if (!mounted) return;
+        if (_controller?.value.hasError == true) {
+          setState(() => _hasError = true);
+        }
+      });
 
-      if (mounted) setState(() => _initialized = true);
+      if (mounted) {
+        setState(() {
+          _initialized = true;
+          _hasError = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _hasError = true);
     }
+  }
+
+  Future<void> _openInExternalPlayer() async {
+    final url = _activeVideoUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _captionTick() {
@@ -71,6 +102,7 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<TripProvider>();
     final captions = context.watch<TripProvider>().currentTrip?.captions ?? [];
 
     return Scaffold(
@@ -80,6 +112,11 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
         foregroundColor: Colors.white,
         title: const Text('Reel Preview', style: TextStyle(color: Colors.white)),
         actions: [
+          if (_activeVideoUrl != null && _activeVideoUrl!.isNotEmpty)
+            TextButton(
+              onPressed: _openInExternalPlayer,
+              child: const Text('Open External', style: TextStyle(color: Colors.white)),
+            ),
           TextButton(
             onPressed: () => Navigator.pushNamed(context, AppRoutes.downloadShare),
             child: const Text('Share →', style: TextStyle(color: AppTheme.accent)),
@@ -88,6 +125,35 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
       ),
       body: Column(
         children: [
+          if (provider.videoEngine != null || provider.videoMessage != null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (provider.videoEngine != null)
+                    Text(
+                      'Engine: ${provider.videoEngine}',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    ),
+                  if ((provider.videoMessage ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      provider.videoMessage!,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
           // Video area
           Expanded(
             child: GestureDetector(
@@ -99,7 +165,7 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
                     _VideoErrorPlaceholder(onRetry: () {
                       setState(() => _hasError = false);
                       _initVideo();
-                    })
+                    }, message: provider.videoMessage, videoUrl: _activeVideoUrl, onOpenExternal: _openInExternalPlayer)
                   else if (!_initialized)
                     const Center(
                       child: CircularProgressIndicator(color: Colors.white),
@@ -219,7 +285,11 @@ class _ControlBtn extends StatelessWidget {
 
 class _VideoErrorPlaceholder extends StatelessWidget {
   final VoidCallback onRetry;
-  const _VideoErrorPlaceholder({required this.onRetry});
+  final String? message;
+  final String? videoUrl;
+  final VoidCallback? onOpenExternal;
+
+  const _VideoErrorPlaceholder({required this.onRetry, this.message, this.videoUrl, this.onOpenExternal});
 
   @override
   Widget build(BuildContext context) {
@@ -228,9 +298,24 @@ class _VideoErrorPlaceholder extends StatelessWidget {
       children: [
         const Icon(Icons.broken_image_outlined, color: Colors.white38, size: 64),
         const SizedBox(height: 12),
-        const Text('Could not load video.', style: TextStyle(color: Colors.white60)),
+        const Text('Could not load generated video.', style: TextStyle(color: Colors.white60)),
+        if (message != null && message!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              message!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+        if (videoUrl != null && videoUrl!.isNotEmpty && onOpenExternal != null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: onOpenExternal, child: const Text('Open In External Player')),
+        ],
       ],
     );
   }

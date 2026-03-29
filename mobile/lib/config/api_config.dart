@@ -2,9 +2,12 @@
 /// Change [baseUrl] to your server address.
 class ApiConfig {
   // ─── Base URL ───────────────────────────────────────────────────────────────
-  /// Local dev: 10.0.2.2 on Android emulator maps to host machine localhost.
-  /// Physical device: use your machine's LAN IP, e.g. 'http://192.168.1.x:8000'
-  static const String baseUrl = 'http://10.0.2.2:8000';
+  /// Override with --dart-define=API_BASE_URL=http://<ip>:8000 when needed.
+  /// Default below is configured for a physical Android device on the same LAN.
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://192.168.0.114:8000',
+  );
 
   // ─── Endpoints ──────────────────────────────────────────────────────────────
   static const String health         = '/health';
@@ -15,8 +18,8 @@ class ApiConfig {
   static const String videoStatus    = '/video/status';
 
   // ─── Timeouts ───────────────────────────────────────────────────────────────
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(minutes: 5); // video gen can take time
+  static const Duration connectTimeout = Duration(minutes: 10);
+  static const Duration receiveTimeout = Duration(minutes: 20); // long LLM/video responses
 
   // ─── Image limits (100 photos · 50 MB each) ──────────────────────────────────
   static const int maxImageSizeMB = 50;

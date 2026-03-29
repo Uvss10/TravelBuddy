@@ -57,7 +57,11 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
     if (ok) {
       Fluttertoast.showToast(msg: 'Itinerary generated!', backgroundColor: AppTheme.success);
-      Navigator.pushNamed(context, AppRoutes.photoUpload);
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.itinerary,
+        arguments: provider.currentTrip,
+      );
     } else {
       Fluttertoast.showToast(
         msg: provider.errorMessage ?? 'Failed to generate itinerary.',

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../config/api_config.dart';
@@ -95,6 +94,11 @@ class ApiService {
           'budget': budget,
           'interests': interests,
         },
+        options: Options(
+          connectTimeout: const Duration(minutes: 10),
+          sendTimeout: const Duration(minutes: 10),
+          receiveTimeout: const Duration(minutes: 20),
+        ),
       );
       final trip = TripModel.fromItineraryJson(resp.data as Map<String, dynamic>);
       return ApiResult.success(trip);
@@ -143,6 +147,11 @@ class ApiService {
           'scene_tags': sceneTags,
           'tone': tone,
         },
+        options: Options(
+          connectTimeout: const Duration(minutes: 10),
+          sendTimeout: const Duration(minutes: 10),
+          receiveTimeout: const Duration(minutes: 20),
+        ),
       );
       return ApiResult.success(resp.data as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -181,9 +190,9 @@ class ApiService {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Request timed out. Please try again.';
+        return 'Request timed out while connecting to ${ApiConfig.baseUrl}. Verify backend is running and reachable from phone.';
       case DioExceptionType.connectionError:
-        return 'Cannot connect to server. Make sure the backend is running.';
+        return 'Cannot connect to ${ApiConfig.baseUrl}. Make sure backend is running and phone/laptop are on same Wi-Fi.';
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
         final message = e.response?.data?['detail'] ?? 'Server error';

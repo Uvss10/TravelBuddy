@@ -22,3 +22,6 @@ models/*.onnx
 
 # User Data
 data/
+
+# Editor
+.vscode/

@@ -1,26 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/common_widgets.dart';
+import '../../widgets/custom_widgets.dart';
 import '../../models/trip_model.dart';
 
-/// Home dashboard — shows greeting, Create Trip CTA, and previous trips.
+/// Modern home dashboard with beautiful UI
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  bool _isRefreshing = false;
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
+  final TextEditingController _reelDestinationController = TextEditingController();
+  String _selectedTone = 'adventurous and inspiring';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _reelDestinationController.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
 
   Future<void> _onRefresh() async {
-    setState(() => _isRefreshing = true);
     await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isRefreshing = false);
+  }
+
+  void _startReelFlow() {
+    final destination = _reelDestinationController.text.trim();
+    if (destination.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a destination to start reel generation.')),
+      );
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.photoUpload,
+      arguments: {
+        'destination': destination,
+        'scene_tags': ['travel', 'landscape'],
+        'tone': _selectedTone,
+      },
+    );
   }
 
   @override
@@ -30,172 +64,483 @@ class _HomeScreenState extends State<HomeScreen> {
     final userName = auth.user?.name.split(' ').first ?? 'Traveller';
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('TravelBuddy'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        color: AppTheme.primary,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+      backgroundColor: AppTheme.bgColor,
+      body: SafeArea(
+        child: Column(
           children: [
-            // Greeting
-            Text(
-              'Hello, $userName 👋',
-              style: Theme.of(context).textTheme.displaySmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Where are you heading next?',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 28),
-
-            // Create Trip card
-            _CreateTripCard(
-              onTap: () => Navigator.pushNamed(context, AppRoutes.createTrip),
-            ),
-            const SizedBox(height: 32),
-
-            // Previous trips
-            TBSectionHeader(
-              title: 'Previous Trips',
-              action: trips.isNotEmpty ? 'See all' : null,
-            ),
-            const SizedBox(height: 16),
-
-            if (trips.isEmpty)
-              TBEmptyState(
-                icon: Icons.luggage_outlined,
-                title: 'No trips yet',
-                subtitle: 'Create your first AI-powered trip plan above.',
-                actionLabel: 'Plan a Trip',
-                onAction: () => Navigator.pushNamed(context, AppRoutes.createTrip),
-              )
-            else
-              ...trips.map((t) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _TripHistoryCard(trip: t),
-                  )),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Create trip hero card ────────────────────────────────────────────────────
-class _CreateTripCard extends StatelessWidget {
-  final VoidCallback onTap;
-  const _CreateTripCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppTheme.primary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              child: Row(
                 children: [
-                  Text(
-                    'Plan a New Trip',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'AI itinerary, photo curation\n& reel generation — all in one.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white60,
-                        ),
-                  ),
-                  const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.white.withAlpha(51),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'Get Started →',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
+                    child: const Icon(
+                      Icons.public,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hello, $userName',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Ready to explore?',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white.withAlpha(214),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+                    icon: Icon(
+                      Icons.settings,
+                      color: Colors.white.withAlpha(230),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.travel_explore, size: 64, color: Colors.white24),
+            Material(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: AppTheme.primaryColor,
+                unselectedLabelColor: AppTheme.mutedColor,
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.movie),
+                        SizedBox(width: 6),
+                        Text('Photo → Reel'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.map),
+                        SizedBox(width: 6),
+                        Text('Trip Plan'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _onRefresh,
+                color: AppTheme.primaryColor,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildReelTab(),
+                    _buildTripTab(trips),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-// ─── Trip history card ────────────────────────────────────────────────────────
-class _TripHistoryCard extends StatelessWidget {
-  final TripModel trip;
-  const _TripHistoryCard({required this.trip});
-
-  @override
-  Widget build(BuildContext context) {
-    return TBCard(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.itinerary, arguments: trip),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppTheme.bgLight,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.place_outlined, color: AppTheme.primary),
+  Widget _buildReelTab() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // Hero Card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: AppTheme.accentGradient,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.accentColor.withAlpha(76),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  trip.destination,
-                  style: Theme.of(context).textTheme.titleLarge,
+          child: Column(
+            children: [
+              const Icon(
+                Icons.bolt,
+                size: 40,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Turn Photos Into\nCinematic Reels',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 2),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'AI picks the best shots & generates narration, captions & hashtags',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withAlpha(229),
+                ),
+              ),
+            ],
+          ),
+        )
+            .animate()
+            .fadeIn(duration: 600.ms)
+            .slide(begin: const Offset(0, 0.3)),
+        const SizedBox(height: 24),
+
+        // Input Section
+        Text(
+          'Where are you traveling?',
+          style: Theme.of(context).textTheme.titleLarge,
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 100.ms),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _reelDestinationController,
+          decoration: InputDecoration(
+            hintText: 'e.g. Jaipur, Paris, Tokyo',
+            prefixIcon: const Icon(Icons.location_on),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 150.ms),
+        const SizedBox(height: 24),
+
+        // Tone Selection
+        Text(
+          'Select a Tone',
+          style: Theme.of(context).textTheme.titleLarge,
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 200.ms),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.3,
+          children: [
+            _toneCard(
+              context,
+              '🔥 Adventurous',
+              'adventurous and inspiring',
+              selected: _selectedTone == 'adventurous and inspiring',
+              onTap: () => setState(() => _selectedTone = 'adventurous and inspiring'),
+            ),
+            _toneCard(
+              context,
+              '🌙 Dreamy',
+              'dreamy and peaceful',
+              selected: _selectedTone == 'dreamy and peaceful',
+              onTap: () => setState(() => _selectedTone = 'dreamy and peaceful'),
+            ),
+            _toneCard(
+              context,
+              '😄 Funny',
+              'funny and light-hearted',
+              selected: _selectedTone == 'funny and light-hearted',
+              onTap: () => setState(() => _selectedTone = 'funny and light-hearted'),
+            ),
+            _toneCard(
+              context,
+              '💛 Nostalgic',
+              'emotional and nostalgic',
+              selected: _selectedTone == 'emotional and nostalgic',
+              onTap: () => setState(() => _selectedTone = 'emotional and nostalgic'),
+            ),
+          ]
+              .animate(interval: 50.ms)
+              .fadeIn(duration: 600.ms, delay: 250.ms)
+              .slide(begin: const Offset(0, 0.2)),
+        ),
+        const SizedBox(height: 24),
+
+        // Upload Section
+        Text(
+          'Upload Photos',
+          style: Theme.of(context).textTheme.titleLarge,
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 300.ms),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: _startReelFlow,
+          child: GlassCard(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(25),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_upload,
+                    size: 48,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Drag or tap to upload',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  '${trip.days} days · ${trip.budget}',
+                  'Max 100 photos · 50 MB each',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppTheme.textHint),
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 350.ms),
+        const SizedBox(height: 24),
+
+        // Generate Button
+        PremiumButton(
+          label: 'Generate Amazing Reel ✨',
+          onPressed: _startReelFlow,
+        )
+            .animate()
+            .fadeIn(duration: 600.ms, delay: 400.ms),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _buildTripTab(List<TripModel> trips) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // Hero section
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryColor.withAlpha(76),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.map,
+                size: 40,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Your Trips',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Get AI-powered itineraries tailored to your interests',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withAlpha(229),
+                ),
+              ),
+            ],
+          ),
+        )
+            .animate()
+            .fadeIn(duration: 600.ms)
+            .slide(begin: const Offset(0, 0.3)),
+        const SizedBox(height: 24),
+
+        // Quick sections
+        Row(
+          children: [
+            Expanded(
+              child: FeatureCard(
+                icon: Icons.electric_bolt,
+                title: 'New Itinerary',
+                description: 'Personalized plan',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.createTrip),
+              )
+                  .animate()
+                  .fadeIn(duration: 600.ms, delay: 100.ms),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FeatureCard(
+                icon: Icons.map,
+                title: 'Explore Map',
+                description: 'See attractions',
+                onTap: () {
+                  // TODO: Navigate to map
+                },
+              )
+                  .animate()
+                  .fadeIn(duration: 600.ms, delay: 150.ms),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Previous trips
+        if (trips.isEmpty)
+          EmptyState(
+            icon: Icons.navigation,
+            title: 'No trips yet',
+            description: 'Create your first AI-powered trip plan',
+            actionLabel: 'Plan a Trip',
+            onAction: () => Navigator.pushNamed(context, AppRoutes.createTrip),
+          )
+        else ...[
+          Text(
+            'Recent Trips',
+            style: Theme.of(context).textTheme.titleLarge,
+          )
+              .animate()
+              .fadeIn(duration: 600.ms, delay: 200.ms),
+          const SizedBox(height: 12),
+          ...trips.take(5).toList().asMap().entries.map((e) {
+            final i = e.key;
+            final trip = e.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GlassCard(
+                onTap: () {
+                  // TODO: View trip details
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.map,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            trip.destination,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '${trip.days} days • ${trip.budget}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+              )
+                  .animate()
+                  .fadeIn(
+                    duration: 600.ms,
+                    delay: Duration(milliseconds: 250 + (i.toInt() * 50)),
+                  )
+                  .slide(begin: const Offset(-0.2, 0)),
+            );
+          }),
         ],
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _toneCard(
+    BuildContext context,
+    String label,
+    String value, {
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: selected ? AppTheme.primaryColor : AppTheme.borderColor,
+            width: selected ? 2.4 : 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: selected ? AppTheme.primaryColor.withAlpha(18) : AppTheme.surfaceColor,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: selected ? AppTheme.primaryColor : null,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+          ),
+        ),
       ),
     );
   }

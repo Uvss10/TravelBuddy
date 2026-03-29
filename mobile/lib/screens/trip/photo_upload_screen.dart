@@ -17,7 +17,17 @@ import '../../widgets/common_widgets.dart';
 ///   • 100 photo maximum
 ///   • All image formats accepted (JPEG, PNG, WEBP, HEIC, RAW, etc.)
 class PhotoUploadScreen extends StatefulWidget {
-  const PhotoUploadScreen({super.key});
+  final String? initialDestination;
+  final List<String>? initialSceneTags;
+  final String? initialTone;
+
+  const PhotoUploadScreen({
+    super.key,
+    this.initialDestination,
+    this.initialSceneTags,
+    this.initialTone,
+  });
+
   @override
   State<PhotoUploadScreen> createState() => _PhotoUploadScreenState();
 }
@@ -80,6 +90,7 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
     }
 
     if (added.isNotEmpty) {
+      if (!mounted) return;
       setState(() => _images = [..._images, ...added]);
       context.read<TripProvider>().setImages(_images);
     }
@@ -104,13 +115,30 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
   // ── Navigate to processing ────────────────────────────────────────────────
   void _proceed() {
     final trip = context.read<TripProvider>().currentTrip;
-    if (trip == null) return;
+    final destination = (trip?.destination ?? widget.initialDestination ?? '').trim();
+    final sceneTags = (trip != null && trip.interests.isNotEmpty)
+        ? trip.interests
+        : (widget.initialSceneTags == null || widget.initialSceneTags!.isEmpty)
+            ? <String>['travel', 'landscape']
+            : widget.initialSceneTags!;
+    final tone = (widget.initialTone ?? 'adventurous and inspiring').trim();
+
+    if (destination.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'Please enter a destination first.',
+        backgroundColor: AppTheme.warning,
+      );
+      return;
+    }
+
     Navigator.pushNamed(
       context,
       AppRoutes.aiProcessing,
       arguments: {
-        'destination': trip.destination,
-        'scene_tags' : trip.interests.isEmpty ? ['landscape', 'travel'] : trip.interests,
+        'destination': destination,
+        'scene_tags' : sceneTags,
+        'tone': tone,
+        'source_flow': 'reel',
       },
     );
   }
@@ -145,6 +173,19 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
 
       body: Column(
         children: [
+          if (widget.initialDestination != null || widget.initialTone != null)
+            Container(
+              width: double.infinity,
+              color: AppTheme.bgLight,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Text(
+                'Destination: ${widget.initialDestination ?? '-'}  •  Tone: ${widget.initialTone ?? 'adventurous and inspiring'}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+
           // ── Reorder hint banner ─────────────────────────────────────────
           if (_isReordering)
             Container(
