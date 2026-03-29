@@ -6,7 +6,7 @@ class ApiConfig {
   /// Default below is configured for a physical Android device on the same LAN.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.0.114:8000',
+    defaultValue: 'http://10.65.31.234:8000',
   );
 
   // ─── Endpoints ──────────────────────────────────────────────────────────────
