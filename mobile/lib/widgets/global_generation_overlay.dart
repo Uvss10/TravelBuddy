@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/video_generation_provider.dart';
+import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -40,34 +41,34 @@ class GlobalGenerationOverlay extends StatelessWidget {
                 },
                 child: GestureDetector(
                   onTap: () {
-                    if (isCompleted && provider.finalVideoUrl != null) {
-                      // Navigate to Video Player screen
+                    final videoUrl = provider.finalVideoUrl;
+                    if (isCompleted && videoUrl != null && videoUrl.isNotEmpty) {
                       provider.reset();
-                      // Navigator.pushNamed(context, '/video_player', arguments: provider.finalVideoUrl);
+                      Navigator.pushNamed(context, AppRoutes.reelPreview, arguments: videoUrl);
                     }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: AppTheme.lg, vertical: AppTheme.md),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor.withOpacity(0.95),
+                      color: Theme.of(context).cardColor.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
+                          color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
                       ],
                       border: Border.all(
-                        color: isCompleted ? AppTheme.successColor.withOpacity(0.5) :
-                               isError ? AppTheme.errorColor.withOpacity(0.5) :
+                        color: isCompleted ? AppTheme.successColor.withValues(alpha: 0.5) :
+                               isError ? AppTheme.errorColor.withValues(alpha: 0.5) :
                                AppTheme.borderColor,
                       ),
                     ),
                     child: Row(
                       children: [
                         if (provider.isActive) ...[
-                          Icon(
+                          const Icon(
                             FontAwesomeIcons.circleNotch,
                             color: AppTheme.primaryColor,
                             size: 20,

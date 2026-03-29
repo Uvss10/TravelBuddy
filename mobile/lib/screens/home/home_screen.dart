@@ -40,6 +40,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     await Future.delayed(const Duration(seconds: 1));
   }
 
+  double _contentBottomInset(BuildContext context) {
+    // Keep scrollable CTAs above the floating nav + gesture/home indicator area.
+    return MediaQuery.of(context).padding.bottom + 116;
+  }
+
   void _startReelFlow() {
     final destination = _reelDestinationController.text.trim();
     if (destination.isEmpty) {
@@ -97,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isNight ? AppTheme.darkBgColor : AppTheme.primaryColor).withOpacity(0.3),
+                    color: (isNight ? AppTheme.darkBgColor : AppTheme.primaryColor).withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   )
@@ -110,9 +115,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                     ),
                     child: const Icon(Icons.public, color: Colors.white, size: 26),
                   ),
@@ -134,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -145,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.settings, color: Colors.white, size: 22),
@@ -179,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildReelTab() {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, _contentBottomInset(context)),
       children: [
         // Hero Card
         Container(
@@ -356,14 +361,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         )
             .animate()
             .fadeIn(duration: 600.ms, delay: 400.ms),
-        const SizedBox(height: 40),
+        const SizedBox(height: 16),
       ],
     );
   }
 
   Widget _buildTripTab(List<TripModel> trips) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, _contentBottomInset(context)),
       children: [
         // Hero section
         Container(
@@ -481,7 +486,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
              .slideX(begin: 0.1, end: 0, curve: Curves.easeOutQuad);
           }),
         ],
-        const SizedBox(height: 40),
+        const SizedBox(height: 16),
       ],
     );
   }
