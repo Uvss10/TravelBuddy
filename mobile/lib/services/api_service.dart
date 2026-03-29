@@ -185,6 +185,73 @@ class ApiService {
     }
   }
 
+  // ─── Upload audio (optional for cinematic flow) ────────────────────────────
+  Future<ApiResult<String>> uploadAudio(File audioFile) async {
+    try {
+      final formData = FormData();
+      formData.files.add(MapEntry(
+        'file',
+        await MultipartFile.fromFile(
+          audioFile.path,
+          filename: audioFile.path.split('/').last,
+        ),
+      ));
+
+      final resp = await _dio.post(
+        ApiConfig.videoUploadAudio,
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      final body = resp.data as Map<String, dynamic>;
+      final path = body['audio_path']?.toString();
+      if (path == null || path.isEmpty) {
+        return const ApiResult.failure('Audio uploaded but backend did not return audio_path.');
+      }
+      return ApiResult.success(path);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
+  // ─── Start cinematic render job ─────────────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> startCinematicVideo({
+    required List<String> imagePaths,
+    required List<String> captions,
+    required String destination,
+    String theme = 'cinematic',
+    String? audioPath,
+    int durationSeconds = 60,
+  }) async {
+    try {
+      final resp = await _dio.post(
+        ApiConfig.videoCinematic,
+        data: {
+          'image_paths': imagePaths,
+          'captions': captions,
+          'destination': destination,
+          'theme': theme,
+          'audio_path': audioPath,
+          'duration_s': durationSeconds,
+        },
+        options: Options(receiveTimeout: const Duration(minutes: 2)),
+      );
+      return ApiResult.success(resp.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
+  // ─── Poll cinematic render job status ───────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> getCinematicStatus(String jobId) async {
+    try {
+      final resp = await _dio.get('${ApiConfig.videoStatus}/$jobId');
+      return ApiResult.success(resp.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
   // ─── Error mapper ────────────────────────────────────────────────────────────
   String _mapError(DioException e) {
     switch (e.type) {

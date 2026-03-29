@@ -6,10 +6,12 @@ import '../../providers/trip_provider.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 
-/// Reel preview screen — video player with caption overlay.
-/// Uses a placeholder video URL (replace with real generated reel URL).
+import '../../services/video_cache_manager.dart';
+
+/// Reel preview screen — video player with zero-buffering cache.
 class ReelPreviewScreen extends StatefulWidget {
-  const ReelPreviewScreen({super.key});
+  final String? videoUrl;
+  const ReelPreviewScreen({super.key, this.videoUrl});
   @override
   State<ReelPreviewScreen> createState() => _ReelPreviewScreenState();
 }
@@ -29,7 +31,8 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
 
   Future<void> _initVideo() async {
     final provider = context.read<TripProvider>();
-    _activeVideoUrl = provider.generatedVideoUrl;
+    // Priority: Argument URL > Provider URL
+    _activeVideoUrl = widget.videoUrl ?? provider.generatedVideoUrl;
 
     if (_activeVideoUrl == null || _activeVideoUrl!.isEmpty) {
       if (mounted) {
@@ -45,7 +48,10 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
       _controller?.removeListener(_captionTick);
       await _controller?.dispose();
 
-      _controller = VideoPlayerController.networkUrl(Uri.parse(_activeVideoUrl!));
+      // Pre-fetch and cache the video before initializing player
+      final cachedFile = await VideoCacheManager.fetchAndCacheVideo(_activeVideoUrl!);
+
+      _controller = VideoPlayerController.file(cachedFile);
       await _controller!.initialize();
       _controller!.setLooping(true);
       _controller!.play();
@@ -91,6 +97,18 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
     setState(() {
       c.value.isPlaying ? c.pause() : c.play();
     });
+  }
+
+  Future<void> _saveVideo() async {
+    if (_activeVideoUrl == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saving to Gallery...')));
+    final success = await VideoCacheManager.saveToGallery(_activeVideoUrl!);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved automatically to Gallery! 🎉')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save to Gallery.')));
+    }
   }
 
   @override
@@ -250,7 +268,7 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
                 _ControlBtn(
                   icon: Icons.download_outlined,
                   label: 'Save',
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.downloadShare),
+                  onTap: _saveVideo,
                 ),
               ],
             ),

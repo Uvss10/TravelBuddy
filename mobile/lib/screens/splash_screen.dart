@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../config/routes.dart';
 import '../theme/app_theme.dart';
+import '../widgets/travel_loaders.dart';
 
 /// Beautiful modern splash screen with animations
 class SplashScreen extends StatefulWidget {
@@ -77,101 +78,38 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Animated Logo
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(242),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryColor.withAlpha(102),
-                          blurRadius: 30,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.public,
-                      size: 55,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
+              // Use the new custom Travel Loader for the Splash Screen
+              TravelLoaders.globePlaneLoader(context, message: "Preparing your adventure..."),
+              const SizedBox(height: AppTheme.xl),
+              
               // App Name - Animated
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
                   children: [
-                    const Text(
-                      '✈️ TravelBuddy',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
+                    Text(
+                      'TravelBuddy',
+                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
                         color: Colors.white,
                         letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'AI',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ).animate().fadeIn(delay: 300.ms).slide(
-                          begin: const Offset(-20, 0),
-                          curve: Curves.easeOut,
-                        ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Your AI travel companion',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white.withAlpha(216),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 80),
-
-              // Loading Indicator
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withAlpha(204),
+                      child: Text(
+                        'PRO API EDITION',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2.0,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading your adventure...',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withAlpha(191),
-                      ),
-                    ),
+                    ).animate().fadeIn(delay: 500.ms).slideX(begin: -0.2, end: 0),
                   ],
                 ),
               ),

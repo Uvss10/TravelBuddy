@@ -16,6 +16,8 @@ class ApiConfig {
   static const String storyGenerate  = '/story/generate';
   static const String videoGenerate  = '/video/generate';
   static const String videoStatus    = '/video/status';
+  static const String videoCinematic = '/video/cinematic';
+  static const String videoUploadAudio = '/video/upload-audio';
 
   // ─── Timeouts ───────────────────────────────────────────────────────────────
   static const Duration connectTimeout = Duration(minutes: 10);

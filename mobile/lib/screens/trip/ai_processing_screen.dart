@@ -43,12 +43,14 @@ class _AiProcessingScreenState extends State<AiProcessingScreen>
     final destination = widget.tripData['destination'] as String? ?? '';
     final sceneTags  = (widget.tripData['scene_tags'] as List?)?.cast<String>() ?? ['travel'];
     final tone = widget.tripData['tone'] as String? ?? 'adventurous and inspiring';
+    final audioLocalPath = widget.tripData['audio_local_path'] as String?;
     final sourceFlow = widget.tripData['source_flow'] as String? ?? 'itinerary';
 
     final ok = await provider.processAll(
       destination: destination,
       sceneTags: sceneTags,
       tone: tone,
+      localAudioPath: audioLocalPath,
     );
     if (!mounted) return;
 
@@ -76,6 +78,13 @@ class _AiProcessingScreenState extends State<AiProcessingScreen>
   @override
   Widget build(BuildContext context) {
     final step = context.watch<TripProvider>().processingStep;
+    final normalizedStep = step.clamp(0, _stages.length);
+    final progressValue = _failed
+      ? 0.0
+      : (normalizedStep / _stages.length).clamp(0.05, 0.98).toDouble();
+    final activeStageLabel = normalizedStep < _stages.length
+      ? _stages[normalizedStep].label
+      : 'Finalizing output';
     final destination = widget.tripData['destination'] as String? ?? '-';
     final tone = widget.tripData['tone'] as String? ?? 'adventurous and inspiring';
 
@@ -108,6 +117,22 @@ class _AiProcessingScreenState extends State<AiProcessingScreen>
               Text(
                 'This may take a few seconds.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 18),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  value: progressValue,
+                  backgroundColor: AppTheme.borderLight,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _failed ? 'Generation interrupted.' : 'Current step: $activeStageLabel',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
               Container(

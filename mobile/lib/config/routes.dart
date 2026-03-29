@@ -67,7 +67,8 @@ class AppRoutes {
         final trip = settings_.arguments as TripModel?;
         return _slideRoute(StoryScreen(trip: trip), settings_);
       case reelPreview:
-        return _slideRoute(const ReelPreviewScreen(), settings_);
+        final url = settings_.arguments as String?;
+        return _slideRoute(ReelPreviewScreen(videoUrl: url), settings_);
       case downloadShare:
         return _slideRoute(const DownloadShareScreen(), settings_);
       case profile:

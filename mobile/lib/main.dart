@@ -6,7 +6,9 @@ import 'config/routes.dart';
 import 'providers/auth_provider.dart';
 import 'providers/trip_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/video_generation_provider.dart';
 import 'theme/app_theme.dart';
+import 'widgets/global_generation_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +25,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TripProvider()),
+        ChangeNotifierProvider(create: (_) => VideoGenerationProvider()),
       ],
       child: const TravelBuddyApp(),
     ),
@@ -44,6 +47,11 @@ class TravelBuddyApp extends StatelessWidget {
       themeMode: themeProvider.themeMode,
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRoutes.onGenerateRoute,
+      builder: (context, child) {
+        return GlobalGenerationOverlay(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

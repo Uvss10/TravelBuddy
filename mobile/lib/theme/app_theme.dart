@@ -5,44 +5,44 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
-  // ── Color Palette (matching web frontend) ──────────────────────────────────
-  static const Color primaryColor = Color(0xFF2563eb);      // Blue
-  static const Color primaryDark = Color(0xFF1d4ed8);       // Blue Dark
-  static const Color primaryLight = Color(0xFF93c5fd);      // Blue Light
-  static const Color accentColor = Color(0xFFf59e0b);       // Amber
-  static const Color accentLight = Color(0xFFfbbf24);       // Amber Light
-  static const Color successColor = Color(0xFF16a34a);      // Green
-  static const Color errorColor = Color(0xFFdc2626);        // Red
-  static const Color textColor = Color(0xFF0f172a);         // Dark
-  static const Color mutedColor = Color(0xFF64748b);        // Muted
-  static const Color hintColor = Color(0xFF94a3b8);         // Hint
-  static const Color surfaceColor = Color(0xFFffffff);      // White
-  static const Color bgColor = Color(0xFFf8fafc);           // Light bg
-  static const Color borderColor = Color(0xFFe2e8f0);       // Border
+  // ── Color Palette (TravelBuddy Thematic) ──────────────────────────────────
+  static const Color primaryColor = Color(0xFF0D3B66);      // Deep Ocean Blue
+  static const Color primaryDark = Color(0xFF082643);       // Navy
+  static const Color primaryLight = Color(0xFF4A8BCC);      // Sea Blue
+  static const Color accentColor = Color(0xFFFF7E67);       // Sunset Orange
+  static const Color accentLight = Color(0xFFFFA596);       // Soft Sunset
+  static const Color successColor = Color(0xFF2A9D8F);      // Teal/Green
+  static const Color errorColor = Color(0xFFE76F51);        // Coral Red
+  static const Color textColor = Color(0xFF14213D);         // Deep Navy/Black
+  static const Color mutedColor = Color(0xFF7A869A);        // Muted Grey/Blue
+  static const Color hintColor = Color(0xFFA1AABB);         // Sand Grey
+  static const Color surfaceColor = Color(0xFFFFFFFF);      // White
+  static const Color bgColor = Color(0xFFF9F8F6);           // Sandstone White
+  static const Color borderColor = Color(0xFFE8E5DF);       // Warm Border
   
   // ── Dark Theme Colors ──────────────────────────────────────────────────────
-  static const Color darkTextColor = Color(0xFFf1f5f9);
-  static const Color darkMutedColor = Color(0xFFcbd5e1);
-  static const Color darkSurfaceColor = Color(0xFF1e293b);
-  static const Color darkBgColor = Color(0xFF0f172a);
+  static const Color darkTextColor = Color(0xFFF1F5F9);
+  static const Color darkMutedColor = Color(0xFFA3B1C6);
+  static const Color darkSurfaceColor = Color(0xFF162540);  // Dark Navy Surface
+  static const Color darkBgColor = Color(0xFF0F172A);       // Deepest Ocean Dark
 
   // ── Gradients ──────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF2563eb), Color(0xFF1e40af)],
+    colors: [Color(0xFF0D3B66), Color(0xFF21578A)],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFf59e0b), Color(0xFFd97706)],
+    colors: [Color(0xFFFF7E67), Color(0xFFE76F51)],
   );
 
   static const LinearGradient darkGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1e293b), Color(0xFF0f172a)],
+    colors: [Color(0xFF162540), Color(0xFF0F172A)],
   );
 
   // ── Light Theme ────────────────────────────────────────────────────────────
@@ -61,37 +61,40 @@ class AppTheme {
       
       // ── Typography ──
       textTheme: GoogleFonts.interTextTheme().copyWith(
-        displayLarge: GoogleFonts.inter(
+        displayLarge: GoogleFonts.outfit(
           fontSize: 32,
           fontWeight: FontWeight.w800,
           color: textColor,
+          letterSpacing: -0.5,
         ),
-        displayMedium: GoogleFonts.inter(
+        displayMedium: GoogleFonts.outfit(
           fontSize: 28,
           fontWeight: FontWeight.w700,
           color: textColor,
+          letterSpacing: -0.5,
         ),
-        displaySmall: GoogleFonts.inter(
+        displaySmall: GoogleFonts.outfit(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: textColor,
+          letterSpacing: -0.5,
         ),
-        headlineLarge: GoogleFonts.inter(
+        headlineLarge: GoogleFonts.outfit(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: textColor,
         ),
-        headlineMedium: GoogleFonts.inter(
+        headlineMedium: GoogleFonts.outfit(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: textColor,
         ),
-        headlineSmall: GoogleFonts.inter(
+        headlineSmall: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: textColor,
         ),
-        titleLarge: GoogleFonts.inter(
+        titleLarge: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: textColor,
@@ -100,11 +103,13 @@ class AppTheme {
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: textColor,
+          height: 1.5,
         ),
         bodyMedium: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: textColor,
+          height: 1.5,
         ),
         bodySmall: GoogleFonts.inter(
           fontSize: 12,
@@ -305,37 +310,40 @@ class AppTheme {
       
       // ── Typography ──
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.inter(
+        displayLarge: GoogleFonts.outfit(
           fontSize: 32,
           fontWeight: FontWeight.w800,
           color: darkTextColor,
+          letterSpacing: -0.5,
         ),
-        displayMedium: GoogleFonts.inter(
+        displayMedium: GoogleFonts.outfit(
           fontSize: 28,
           fontWeight: FontWeight.w700,
           color: darkTextColor,
+          letterSpacing: -0.5,
         ),
-        displaySmall: GoogleFonts.inter(
+        displaySmall: GoogleFonts.outfit(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: darkTextColor,
+          letterSpacing: -0.5,
         ),
-        headlineLarge: GoogleFonts.inter(
+        headlineLarge: GoogleFonts.outfit(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: darkTextColor,
         ),
-        headlineMedium: GoogleFonts.inter(
+        headlineMedium: GoogleFonts.outfit(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: darkTextColor,
         ),
-        headlineSmall: GoogleFonts.inter(
+        headlineSmall: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: darkTextColor,
         ),
-        titleLarge: GoogleFonts.inter(
+        titleLarge: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: darkTextColor,
@@ -344,11 +352,13 @@ class AppTheme {
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: darkTextColor,
+          height: 1.5,
         ),
         bodyMedium: GoogleFonts.inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: darkTextColor,
+          height: 1.5,
         ),
         bodySmall: GoogleFonts.inter(
           fontSize: 12,

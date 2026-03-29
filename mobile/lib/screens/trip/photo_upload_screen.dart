@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/video_generation_provider.dart';
 import '../../config/routes.dart';
 import '../../config/api_config.dart';
 import '../../theme/app_theme.dart';
@@ -36,6 +38,13 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
   final _picker = ImagePicker();
   List<File> _images = [];
   bool _isReordering = false;
+  File? _selectedAudio;
+  bool _isPickingImages = false;
+  bool _isPickingAudio = false;
+  bool _isPreparingNext = false;
+  String _busyMessage = '';
+
+  bool get _isBusy => _isPickingImages || _isPickingAudio || _isPreparingNext;
 
   // ── RAW extensions (shown with placeholder instead of thumbnail) ─────────
   static const _rawExts = {
@@ -44,16 +53,29 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
 
   // ── Pick from gallery ─────────────────────────────────────────────────────
   Future<void> _pick() async {
+    if (_isBusy) return;
+
+    setState(() {
+      _isPickingImages = true;
+      _busyMessage = 'Opening gallery...';
+    });
+
     if (_images.length >= ApiConfig.maxImageCount) {
       Fluttertoast.showToast(
         msg: 'Maximum ${ApiConfig.maxImageCount} photos allowed.',
         backgroundColor: AppTheme.warning,
       );
+      setState(() => _isPickingImages = false);
       return;
     }
 
     final pickedFiles = await _picker.pickMultiImage(imageQuality: 90);
-    if (pickedFiles.isEmpty) return;
+    if (pickedFiles.isEmpty) {
+      setState(() => _isPickingImages = false);
+      return;
+    }
+
+    setState(() => _busyMessage = 'Validating ${pickedFiles.length} photo(s)...');
 
     final added = <File>[];
     int skipped = 0;
@@ -94,6 +116,13 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
       setState(() => _images = [..._images, ...added]);
       context.read<TripProvider>().setImages(_images);
     }
+
+    if (mounted) {
+      setState(() {
+        _isPickingImages = false;
+        _busyMessage = '';
+      });
+    }
   }
 
   // ── Remove single image ───────────────────────────────────────────────────
@@ -112,15 +141,92 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
     context.read<TripProvider>().setImages(_images);
   }
 
+  Future<void> _pickAudio() async {
+    if (_isBusy) return;
+
+    setState(() {
+      _isPickingAudio = true;
+      _busyMessage = 'Selecting music file...';
+    });
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'],
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final picked = result.files.first;
+      final path = picked.path;
+
+      if (path == null || path.isEmpty) {
+        Fluttertoast.showToast(
+          msg: 'Unable to access selected music file. Please choose a local file.',
+          backgroundColor: AppTheme.warning,
+          toastLength: Toast.LENGTH_LONG,
+        );
+        return;
+      }
+
+      var sizeMb = picked.size / (1024 * 1024);
+      if (sizeMb <= 0) {
+        try {
+          sizeMb = await File(path).length() / (1024 * 1024);
+        } catch (_) {
+          sizeMb = 0;
+        }
+      }
+
+      if (sizeMb > 50) {
+        Fluttertoast.showToast(
+          msg: 'Music file is too large. Max 50 MB allowed.',
+          backgroundColor: AppTheme.warning,
+        );
+        return;
+      }
+
+      final file = File(path);
+      final exists = await file.exists();
+      if (!exists) {
+        Fluttertoast.showToast(
+          msg: 'Selected file could not be accessed. Please pick it again.',
+          backgroundColor: AppTheme.warning,
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _selectedAudio = file);
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Could not select music file. Please try again.',
+        backgroundColor: AppTheme.error,
+        toastLength: Toast.LENGTH_LONG,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingAudio = false;
+          if (!_isPickingImages && !_isPreparingNext) {
+            _busyMessage = '';
+          }
+        });
+      }
+    }
+  }
+
   // ── Navigate to processing ────────────────────────────────────────────────
-  void _proceed() {
+  Future<void> _proceed() async {
+    if (_isBusy) return;
+
+    setState(() {
+      _isPreparingNext = true;
+      _busyMessage = 'Preparing generation flow...';
+    });
+
     final trip = context.read<TripProvider>().currentTrip;
     final destination = (trip?.destination ?? widget.initialDestination ?? '').trim();
-    final sceneTags = (trip != null && trip.interests.isNotEmpty)
-        ? trip.interests
-        : (widget.initialSceneTags == null || widget.initialSceneTags!.isEmpty)
-            ? <String>['travel', 'landscape']
-            : widget.initialSceneTags!;
     final tone = (widget.initialTone ?? 'adventurous and inspiring').trim();
 
     if (destination.isEmpty) {
@@ -128,19 +234,32 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
         msg: 'Please enter a destination first.',
         backgroundColor: AppTheme.warning,
       );
+      setState(() {
+        _isPreparingNext = false;
+        _busyMessage = '';
+      });
       return;
     }
 
-    Navigator.pushNamed(
-      context,
-      AppRoutes.aiProcessing,
-      arguments: {
-        'destination': destination,
-        'scene_tags' : sceneTags,
-        'tone': tone,
-        'source_flow': 'reel',
-      },
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    if (!mounted) return;
+
+    // Trigger the global, non-blocking background video generation
+    context.read<VideoGenerationProvider>().startCinematicGeneration(
+      imagePaths: _images.map((e) => e.path).toList(),
+      destination: destination,
+      theme: tone,
+      audioPath: _selectedAudio?.path,
     );
+    
+    setState(() {
+      _isPreparingNext = false;
+      _busyMessage = '';
+    });
+
+    // Let the GlobalGenerationOverlay handle the state. Send user home.
+    Navigator.popUntil(context, ModalRoute.withName(AppRoutes.home));
   }
 
   // ── Helper: is path a RAW file? ───────────────────────────────────────────
@@ -161,18 +280,20 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
               icon: Icon(_isReordering ? Icons.check_circle : Icons.swap_vert),
               tooltip: _isReordering ? 'Done reordering' : 'Reorder photos',
               color: _isReordering ? AppTheme.success : null,
-              onPressed: () => setState(() => _isReordering = !_isReordering),
+              onPressed: _isBusy ? null : () => setState(() => _isReordering = !_isReordering),
             ),
           if (_images.isNotEmpty)
             TextButton(
-              onPressed: _proceed,
+              onPressed: _isBusy ? null : _proceed,
               child: const Text('Next →'),
             ),
         ],
       ),
 
-      body: Column(
+      body: Stack(
         children: [
+          Column(
+            children: [
           if (widget.initialDestination != null || widget.initialTone != null)
             Container(
               width: double.infinity,
@@ -183,6 +304,24 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
+              ),
+            ),
+
+          if (_images.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withAlpha(12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.primary.withAlpha(50)),
+              ),
+              child: Text(
+                _selectedAudio == null
+                    ? 'Photos selected. Optional: add music, then continue.'
+                    : 'Photos + music selected. Ready for cinematic generation.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
 
@@ -213,7 +352,7 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
           // ── Photo grid / empty state ────────────────────────────────────
           Expanded(
             child: _images.isEmpty
-                ? _EmptyPickerPlaceholder(onTap: _pick)
+                ? _EmptyPickerPlaceholder(onTap: _isBusy ? null : _pick)
                 : _isReordering
                     ? _buildReorderGrid()
                     : _buildStaticGrid(),
@@ -224,8 +363,10 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
                   children: [
                     Text(
                       '${_images.length} / ${ApiConfig.maxImageCount} photos',
@@ -242,14 +383,27 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
                   label: _images.isEmpty
                       ? 'Select Photos'
                       : 'Continue with ${_images.length} Photo${_images.length == 1 ? '' : 's'}',
-                  onPressed: _images.isEmpty ? _pick : _proceed,
+                  onPressed: _isBusy ? null : (_images.isEmpty ? _pick : _proceed),
                   icon: _images.isEmpty
                       ? Icons.add_photo_alternate_outlined
                       : Icons.arrow_forward,
+                  isLoading: _isPreparingNext,
+                ),
+                const SizedBox(height: 10),
+                TBSecondaryButton(
+                  label: _selectedAudio == null
+                      ? 'Add Music (Optional)'
+                      : 'Music Added: ${_selectedAudio!.path.split('/').last}',
+                  icon: Icons.music_note,
+                  onPressed: _isBusy ? null : _pickAudio,
                 ),
               ],
             ),
           ),
+            ],
+          ),
+          if (_isBusy)
+            TBLoadingOverlay(message: _busyMessage.isEmpty ? 'Please wait...' : _busyMessage),
         ],
       ),
     );
@@ -324,7 +478,7 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
 
 // ─── Empty placeholder ─────────────────────────────────────────────────────────
 class _EmptyPickerPlaceholder extends StatelessWidget {
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _EmptyPickerPlaceholder({required this.onTap});
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/trip_model.dart';
 import '../services/api_service.dart';
@@ -129,6 +130,7 @@ class TripProvider extends ChangeNotifier {
     required String destination,
     required List<String> sceneTags,
     String tone = 'adventurous and inspiring',
+    String? localAudioPath,
   }) async {
     _errorMessage = null;
     _generatedVideoUrl = null;
@@ -197,39 +199,107 @@ class TripProvider extends ChangeNotifier {
 
       // Build captions list from story (if available)
       final captions = _currentTrip?.captions ?? [];
-      final videoResult = await _api.generateVideo(
-        imagePaths : serverImagePaths,
-        captions   : captions,
-        destination: destination,
-      );
-
-      if (videoResult.isSuccess) {
-        final data = videoResult.data ?? {};
-        _videoEngine = data['engine']?.toString();
-        _videoMessage = data['message']?.toString();
-
-        final status = data['status']?.toString().toLowerCase();
-
-        final rawUrl = data['video_url']?.toString();
-        if (rawUrl != null && rawUrl.isNotEmpty) {
-          _generatedVideoUrl = _normalizeVideoUrl(rawUrl);
+      if (localAudioPath != null && localAudioPath.isNotEmpty) {
+        final audioUpload = await _api.uploadAudio(File(localAudioPath));
+        if (!audioUpload.isSuccess || (audioUpload.data ?? '').isEmpty) {
+          _errorMessage = audioUpload.error ?? 'Failed to upload music file.';
+          notifyListeners();
+          return false;
         }
 
-        // Mobile app cannot run the web js_canvas fallback engine.
-        if (_generatedVideoUrl == null || _generatedVideoUrl!.isEmpty) {
-          _errorMessage = _videoMessage ?? 'Video generation did not return a playable URL.';
-          if ((_videoEngine ?? '').toLowerCase() == 'js_canvas' || status == 'fallback') {
-            _errorMessage =
-                'Server returned web-only fallback (js_canvas). Install ffmpeg/moviepy on backend to enable mobile playback.';
+        final startJob = await _api.startCinematicVideo(
+          imagePaths: serverImagePaths,
+          captions: captions,
+          destination: destination,
+          audioPath: audioUpload.data,
+          theme: 'cinematic',
+          durationSeconds: 60,
+        );
+
+        if (!startJob.isSuccess) {
+          _errorMessage = startJob.error ?? 'Failed to start cinematic video generation.';
+          notifyListeners();
+          return false;
+        }
+
+        final jobId = startJob.data?['job_id']?.toString();
+        if (jobId == null || jobId.isEmpty) {
+          _errorMessage = 'Cinematic video job did not return a valid job id.';
+          notifyListeners();
+          return false;
+        }
+
+        for (int attempt = 0; attempt < 180; attempt++) {
+          await Future.delayed(const Duration(seconds: 2));
+
+          final poll = await _api.getCinematicStatus(jobId);
+          if (!poll.isSuccess) {
+            continue;
           }
+
+          final statusData = poll.data ?? {};
+          final status = statusData['status']?.toString().toLowerCase() ?? '';
+          _videoMessage = statusData['message']?.toString();
+
+          if (status == 'done') {
+            final rawUrl = statusData['video_url']?.toString();
+            if (rawUrl != null && rawUrl.isNotEmpty) {
+              _generatedVideoUrl = _normalizeVideoUrl(rawUrl);
+              _videoEngine = 'cinematic';
+              break;
+            }
+            _errorMessage = 'Cinematic render completed but video URL is missing.';
+            notifyListeners();
+            return false;
+          }
+
+          if (status == 'error' || status == 'not_found') {
+            _errorMessage = _videoMessage ?? 'Cinematic render failed.';
+            notifyListeners();
+            return false;
+          }
+        }
+
+        if (_generatedVideoUrl == null || _generatedVideoUrl!.isEmpty) {
+          _errorMessage = 'Cinematic video generation timed out.';
           notifyListeners();
           return false;
         }
       } else {
-        _videoMessage = videoResult.error;
-        _errorMessage = videoResult.error;
-        notifyListeners();
-        return false;
+        final videoResult = await _api.generateVideo(
+          imagePaths : serverImagePaths,
+          captions   : captions,
+          destination: destination,
+        );
+
+        if (videoResult.isSuccess) {
+          final data = videoResult.data ?? {};
+          _videoEngine = data['engine']?.toString();
+          _videoMessage = data['message']?.toString();
+
+          final status = data['status']?.toString().toLowerCase();
+
+          final rawUrl = data['video_url']?.toString();
+          if (rawUrl != null && rawUrl.isNotEmpty) {
+            _generatedVideoUrl = _normalizeVideoUrl(rawUrl);
+          }
+
+          // Mobile app cannot run the web js_canvas fallback engine.
+          if (_generatedVideoUrl == null || _generatedVideoUrl!.isEmpty) {
+            _errorMessage = _videoMessage ?? 'Video generation did not return a playable URL.';
+            if ((_videoEngine ?? '').toLowerCase() == 'js_canvas' || status == 'fallback') {
+              _errorMessage =
+                  'Server returned web-only fallback (js_canvas). Install ffmpeg/moviepy on backend to enable mobile playback.';
+            }
+            notifyListeners();
+            return false;
+          }
+        } else {
+          _videoMessage = videoResult.error;
+          _errorMessage = videoResult.error;
+          notifyListeners();
+          return false;
+        }
       }
     }
 

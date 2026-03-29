@@ -7,6 +7,8 @@ import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_widgets.dart';
 import '../../models/trip_model.dart';
+import '../../widgets/animated_compass_nav.dart';
+import '../../widgets/ticket_card.dart';
 
 /// Modern home dashboard with beautiful UI
 class HomeScreen extends StatefulWidget {
@@ -19,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _reelDestinationController = TextEditingController();
   String _selectedTone = 'adventurous and inspiring';
+  int _bottomNavIndex = 0;
 
   @override
   void initState() {
@@ -62,104 +65,108 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final auth = context.watch<AuthProvider>();
     final trips = context.watch<TripProvider>().tripHistory;
     final userName = auth.user?.name.split(' ').first ?? 'Traveller';
+    final currentHour = DateTime.now().hour;
+    final isNight = currentHour >= 18 || currentHour <= 5;
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
+      extendBody: true, // Needed for floating nav bar
+      bottomNavigationBar: AnimatedCompassNav(
+        currentIndex: _bottomNavIndex,
+        onTap: (index) {
+          setState(() {
+            _bottomNavIndex = index;
+            if (index == 0 || index == 1) {
+              _tabController.animateTo(index);
+            }
+          });
+        },
+      ),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            Container(
-              decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            // Dynamic Time-of-Day Hero Header
+            AnimatedContainer(
+              duration: const Duration(seconds: 1),
+              decoration: BoxDecoration(
+                gradient: isNight ? AppTheme.darkGradient : AppTheme.primaryGradient,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isNight ? AppTheme.darkBgColor : AppTheme.primaryColor).withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  )
+                ]
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               child: Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(51),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
                     ),
-                    child: const Icon(
-                      Icons.public,
-                      color: Colors.white,
-                      size: 22,
-                    ),
+                    child: const Icon(Icons.public, color: Colors.white, size: 26),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hello, $userName',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                          'Where to next, $userName?',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             color: Colors.white,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
+                        const SizedBox(height: 4),
                         Text(
-                          'Ready to explore?',
+                          isNight ? 'The stars are waiting.' : 'Adventure calls.',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            color: Colors.white.withAlpha(214),
+                            color: Colors.white.withOpacity(0.8),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-                    icon: Icon(
-                      Icons.settings,
-                      color: Colors.white.withAlpha(230),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.settings, color: Colors.white, size: 22),
                     ),
                   ),
                 ],
               ),
             ),
-            Material(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                indicatorSize: TabBarIndicatorSize.label,
-                labelColor: AppTheme.primaryColor,
-                unselectedLabelColor: AppTheme.mutedColor,
-                tabs: [
-                  Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.movie),
-                        SizedBox(width: 6),
-                        Text('Photo → Reel'),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.map),
-                        SizedBox(width: 6),
-                        Text('Trip Plan'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            
+            const SizedBox(height: 10),
+
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _onRefresh,
-                color: AppTheme.primaryColor,
+                color: AppTheme.accentColor,
                 child: TabBarView(
                   controller: _tabController,
+                  physics: const NeverScrollableScrollPhysics(), // Managed by bottom nav
                   children: [
-                    _buildReelTab(),
-                    _buildTripTab(trips),
+                    _buildReelTab().animate().fade(duration: 400.ms),
+                    _buildTripTab(trips).animate().fade(duration: 400.ms),
                   ],
                 ),
               ),
@@ -457,55 +464,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ...trips.take(5).toList().asMap().entries.map((e) {
             final i = e.key;
             final trip = e.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GlassCard(
-                onTap: () {
-                  // TODO: View trip details
-                },
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.map,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            trip.destination,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            '${trip.days} days • ${trip.budget}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
-              )
-                  .animate()
-                  .fadeIn(
-                    duration: 600.ms,
-                    delay: Duration(milliseconds: 250 + (i.toInt() * 50)),
-                  )
-                  .slide(begin: const Offset(-0.2, 0)),
-            );
+            // Generate a random sample image URL based on destination for demo
+            final sampleImg = 'https://source.unsplash.com/800x600/?${Uri.encodeComponent(trip.destination)},travel';
+            
+            return TicketCard(
+              destination: trip.destination,
+              title: '${trip.days} Day Adventure',
+              date: 'Upcoming', // Would bind to real date
+              duration: '${trip.days}d',
+              imageUrl: sampleImg,
+              onTap: () {
+                // TODO: View trip details
+              },
+            ).animate()
+             .fadeIn(duration: 600.ms, delay: Duration(milliseconds: 200 + (i * 100)))
+             .slideX(begin: 0.1, end: 0, curve: Curves.easeOutQuad);
           }),
         ],
         const SizedBox(height: 40),
