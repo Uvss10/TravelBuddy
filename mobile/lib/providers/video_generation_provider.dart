@@ -42,13 +42,24 @@ class VideoGenerationProvider extends ChangeNotifier {
 
   String _normalizeVideoUrl(String rawUrl) {
     if (rawUrl.isEmpty) return rawUrl;
+
+    String encodeAbsolute(String url) {
+      final parsed = Uri.tryParse(url);
+      if (parsed == null) return url.replaceAll(' ', '%20');
+      return parsed.replace(pathSegments: parsed.pathSegments).toString();
+    }
+
     if (!rawUrl.startsWith('http')) {
-      return '${ApiConfig.baseUrl}$rawUrl';
+      final base = Uri.tryParse(ApiConfig.baseUrl);
+      if (base == null) return '${ApiConfig.baseUrl}${rawUrl.replaceAll(' ', '%20')}';
+
+      final path = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
+      return base.replace(path: path).toString();
     }
 
     final raw = Uri.tryParse(rawUrl);
     final base = Uri.tryParse(ApiConfig.baseUrl);
-    if (raw == null || base == null) return rawUrl;
+    if (raw == null || base == null) return encodeAbsolute(rawUrl);
 
     if (raw.host == '127.0.0.1' || raw.host == 'localhost' || raw.host == '0.0.0.0') {
       return base
@@ -59,7 +70,7 @@ class VideoGenerationProvider extends ChangeNotifier {
           )
           .toString();
     }
-    return rawUrl;
+    return encodeAbsolute(rawUrl);
   }
 
   Future<void> startCinematicGeneration({

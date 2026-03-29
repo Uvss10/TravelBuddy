@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/video_generation_provider.dart';
 import '../../config/routes.dart';
+import '../../config/app_navigator.dart';
 import '../../theme/app_theme.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -43,8 +44,11 @@ class GlobalGenerationOverlay extends StatelessWidget {
                   onTap: () {
                     final videoUrl = provider.finalVideoUrl;
                     if (isCompleted && videoUrl != null && videoUrl.isNotEmpty) {
-                      provider.reset();
-                      Navigator.pushNamed(context, AppRoutes.reelPreview, arguments: videoUrl);
+                      final nav = AppNavigator.key.currentState;
+                      if (nav != null) {
+                        nav.pushNamed(AppRoutes.reelPreview, arguments: videoUrl);
+                        provider.reset();
+                      }
                     }
                   },
                   child: Container(

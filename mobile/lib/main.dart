@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'config/routes.dart';
+import 'config/app_navigator.dart';
 import 'providers/auth_provider.dart';
 import 'providers/trip_provider.dart';
 import 'providers/theme_provider.dart';
@@ -40,6 +41,7 @@ class TravelBuddyApp extends StatelessWidget {
     final themeProvider = context.watch<ThemeProvider>();
 
     return MaterialApp(
+      navigatorKey: AppNavigator.key,
       title: 'TravelBuddy',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
