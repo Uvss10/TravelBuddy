@@ -101,6 +101,7 @@ class TBInputField extends StatelessWidget {
   final Widget? suffix;
   final bool obscureText;
   final void Function(String)? onChanged;
+  final IconData? icon;
 
   const TBInputField({
     super.key,
@@ -113,6 +114,7 @@ class TBInputField extends StatelessWidget {
     this.suffix,
     this.obscureText = false,
     this.onChanged,
+    this.icon,
   });
 
   @override
@@ -120,7 +122,7 @@ class TBInputField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textHint, letterSpacing: 0.5)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
@@ -129,10 +131,27 @@ class TBInputField extends StatelessWidget {
           maxLines: obscureText ? 1 : maxLines,
           obscureText: obscureText,
           onChanged: onChanged,
-          style: Theme.of(context).textTheme.bodyLarge,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.textPrimary),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(color: AppTheme.textHint, fontWeight: FontWeight.w400),
+            prefixIcon: icon != null ? Icon(icon, size: 20, color: AppTheme.primary) : null,
             suffixIcon: suffix,
+            filled: true,
+            fillColor: AppTheme.bgLight,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide(color: AppTheme.borderLight),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide(color: AppTheme.borderLight),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20),
+              borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+            ),
           ),
         ),
       ],

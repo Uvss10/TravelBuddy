@@ -21,6 +21,7 @@ class ItineraryScreen extends StatefulWidget {
 class _ItineraryScreenState extends State<ItineraryScreen> {
   final TextEditingController _tweakController = TextEditingController();
   bool _isTweaking = false;
+  int _selectedDayIndex = 0;
 
   _ItineraryViewData _buildViewData() {
     final raw = widget.trip?.itineraryOutput;
@@ -105,15 +106,42 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 // ── Day Timeline ──
                 const TBSectionHeader(title: '🗺️ Day-wise Journey'),
                 const SizedBox(height: 12),
-                ...view.days.asMap().entries.map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _DayCard(
-                      day: entry.value,
-                      dayIndex: entry.key,
-                    ).animate().fadeIn(delay: (200 + entry.key * 100).ms),
+                SizedBox(
+                  height: 100,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: view.days.length,
+                    itemBuilder: (context, i) {
+                      final isSel = _selectedDayIndex == i;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedDayIndex = i),
+                        child: Container(
+                          width: 80,
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: BoxDecoration(
+                            color: isSel ? AppTheme.primary : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: isSel ? AppTheme.primary : AppTheme.borderLight),
+                            boxShadow: isSel ? [BoxShadow(color: AppTheme.primary.withAlpha(50), blurRadius: 10, offset: const Offset(0, 4))] : null,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('DAY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isSel ? Colors.white70 : AppTheme.textHint)),
+                              const SizedBox(height: 4),
+                              Text('${i + 1}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isSel ? Colors.white : AppTheme.textPrimary)),
+                            ],
+                          ),
+                        ).animate(target: isSel ? 1 : 0).scale(begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05)),
+                      );
+                    },
                   ),
                 ),
+                const SizedBox(height: 24),
+                _DayCard(
+                  day: view.days[_selectedDayIndex],
+                  dayIndex: _selectedDayIndex,
+                ).animate(key: ValueKey(_selectedDayIndex)).fadeIn().slideY(begin: 0.1),
                 const SizedBox(height: 24),
 
                 // ── Budget Section (Web Parity) ──

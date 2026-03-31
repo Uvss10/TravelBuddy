@@ -5,44 +5,44 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
-  // ── Color Palette (TravelBuddy Brand Sync) ──────────────────────────────────
-  static const Color primaryColor = Color(0xFF2563EB);      // Vibrant Blue
-  static const Color primaryDark = Color(0xFF1E40AF);       // Dark Blue
-  static const Color primaryLight = Color(0xFF60A5FA);      // Sky Blue
-  static const Color accentColor = Color(0xFFF59E0B);       // Golden Amber
-  static const Color accentLight = Color(0xFFFCD34D);       // Soft Amber
-  static const Color successColor = Color(0xFF16A34A);      // Emerald Green
-  static const Color errorColor = Color(0xFFDC2626);        // Bright Red
-  static const Color textColor = Color(0xFF0F172A);         // Slate Deep
+  // ── Color Palette (Vibrant & Attractive - User Choice) ───────────────────
+  static const Color primaryColor = Color(0xFF2563EB);      // Vibrant Electric Blue
+  static const Color primaryDark = Color(0xFF1E40AF);       // Rich Blue
+  static const Color primaryLight = Color(0xFF60A5FA);      // Bright Sky
+  static const Color accentColor = Color(0xFFF59E0B);       // Golden Sunset Amber
+  static const Color accentLight = Color(0xFFFCD34D);       // Soft Sunlight
+  static const Color successColor = Color(0xFF10B981);      // Emerald Green
+  static const Color errorColor = Color(0xFFEF4444);        // Vibrant Red
+  static const Color textColor = Color(0xFF0F172A);         // Deepest Slate
   static const Color mutedColor = Color(0xFF64748B);        // Slate Muted
   static const Color hintColor = Color(0xFF94A3B8);         // Slate Light
-  static const Color surfaceColor = Color(0xFFFFFFFF);      // White
-  static const Color bgColor = Color(0xFFF8FAFC);           // Off White
-  static const Color borderColor = Color(0xFFE2E8F0);       // Light Slate Border
+  static const Color surfaceColor = Color(0xFFFFFFFF);      // Stark White
+  static const Color bgColor = Color(0xFFF8FAFC);           // Fresh White
+  static const Color borderColor = Color(0xFFE2E8F0);       // Light Border Blue
   
   // ── Dark Theme Colors ──────────────────────────────────────────────────────
   static const Color darkTextColor = Color(0xFFF1F5F9);
   static const Color darkMutedColor = Color(0xFFA3B1C6);
-  static const Color darkSurfaceColor = Color(0xFF162540);  // Dark Navy Surface
-  static const Color darkBgColor = Color(0xFF0F172A);       // Deepest Ocean Dark
+  static const Color darkSurfaceColor = Color(0xFF1E293B);
+  static const Color darkBgColor = Color(0xFF0F172A);
 
   // ── Gradients ──────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0D3B66), Color(0xFF21578A)],
+    colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF7E67), Color(0xFFE76F51)],
+    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
   );
 
   static const LinearGradient darkGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF162540), Color(0xFF0F172A)],
+    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
   );
 
   // ── Light Theme ────────────────────────────────────────────────────────────

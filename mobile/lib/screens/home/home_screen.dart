@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/trip_model.dart';
+import '../../widgets/ticket_card.dart';
+import '../../widgets/animated_compass_nav.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/common_widgets.dart';
 import '../../widgets/custom_widgets.dart';
-import '../../models/trip_model.dart';
-import '../../widgets/animated_compass_nav.dart';
-import '../../widgets/ticket_card.dart';
-
-/// Modern home dashboard with beautiful UI
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -91,55 +90,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         bottom: false,
         child: Column(
           children: [
-            // Dynamic Time-of-Day Hero Header
+            // --- Dynamic Professional Header ---
             AnimatedContainer(
               duration: const Duration(seconds: 1),
+              padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
               decoration: BoxDecoration(
                 gradient: isNight ? AppTheme.darkGradient : AppTheme.primaryGradient,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
+                  bottomLeft: Radius.circular(36),
+                  bottomRight: Radius.circular(36),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isNight ? AppTheme.darkBgColor : AppTheme.primaryColor).withValues(alpha: 0.3),
+                    color: (isNight ? AppTheme.darkBgColor : AppTheme.primaryColor).withAlpha(60),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   )
-                ]
+                ],
               ),
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               child: Row(
                 children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                    ),
-                    child: const Icon(Icons.public, color: Colors.white, size: 26),
-                  ),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Where to next, $userName?',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
+                          'WELCOME BACK, ${userName.toUpperCase()}',
+                          style: TextStyle(
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: 2.0,
+                            color: Colors.white.withAlpha(180),
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          isNight ? 'The stars are waiting.' : 'Adventure calls.',
+                        const Text(
+                          'Your Next Expedition',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -148,12 +139,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   GestureDetector(
                     onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
                     child: Container(
-                      padding: const EdgeInsets.all(10),
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: Colors.white.withAlpha(40),
                         shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withAlpha(60)),
                       ),
-                      child: const Icon(Icons.settings, color: Colors.white, size: 22),
+                      child: const Center(
+                        child: Icon(Icons.person_outline_rounded, color: Colors.white, size: 24),
+                      ),
                     ),
                   ),
                 ],
@@ -186,53 +181,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 20, 20, _contentBottomInset(context)),
       children: [
-        // Hero Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: AppTheme.accentGradient,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.accentColor.withAlpha(76),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.bolt,
-                size: 40,
-                color: Colors.white,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Turn Photos Into\nCinematic Reels',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'AI picks the best shots & generates narration, captions & hashtags',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white.withAlpha(229),
-                ),
-              ),
-            ],
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms)
-            .slide(begin: const Offset(0, 0.3)),
+        // --- Professional Studio Header ---
+        const Text(
+          'CINEMA STUDIO',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: AppTheme.primary),
+        ).animate().fadeIn(),
+        const SizedBox(height: 8),
+        const Text(
+          'Create a Masterpiece',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+        ).animate().fadeIn(delay: 100.ms),
+        const SizedBox(height: 24),
         const SizedBox(height: 24),
 
         // Input Section
@@ -257,54 +216,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             .fadeIn(duration: 600.ms, delay: 150.ms),
         const SizedBox(height: 24),
 
-        // Tone Selection
-        Text(
-          'Select a Tone',
-          style: Theme.of(context).textTheme.titleLarge,
+        // Directing Style Selection
+        const Text(
+          'Directing Style',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5),
         )
             .animate()
             .fadeIn(duration: 600.ms, delay: 200.ms),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.3,
-          children: [
-            _toneCard(
-              context,
-              '🔥 Adventurous',
-              'adventurous and inspiring',
-              selected: _selectedTone == 'adventurous and inspiring',
-              onTap: () => setState(() => _selectedTone = 'adventurous and inspiring'),
-            ),
-            _toneCard(
-              context,
-              '🌙 Dreamy',
-              'dreamy and peaceful',
-              selected: _selectedTone == 'dreamy and peaceful',
-              onTap: () => setState(() => _selectedTone = 'dreamy and peaceful'),
-            ),
-            _toneCard(
-              context,
-              '😄 Funny',
-              'funny and light-hearted',
-              selected: _selectedTone == 'funny and light-hearted',
-              onTap: () => setState(() => _selectedTone = 'funny and light-hearted'),
-            ),
-            _toneCard(
-              context,
-              '💛 Nostalgic',
-              'emotional and nostalgic',
-              selected: _selectedTone == 'emotional and nostalgic',
-              onTap: () => setState(() => _selectedTone = 'emotional and nostalgic'),
-            ),
-          ]
-              .animate(interval: 50.ms)
-              .fadeIn(duration: 600.ms, delay: 250.ms)
-              .slide(begin: const Offset(0, 0.2)),
+        SizedBox(
+          height: 100,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              _stylePreset(context, Icons.movie_filter_rounded, 'Cinematic', 'Wide anamorphic look', _selectedTone == 'adventurous and inspiring', () => setState(() => _selectedTone = 'adventurous and inspiring')),
+              _stylePreset(context, Icons.camera_roll_rounded, 'Vintage', '35mm grain & warmth', _selectedTone == 'emotional and nostalgic', () => setState(() => _selectedTone = 'emotional and nostalgic')),
+              _stylePreset(context, Icons.auto_awesome_rounded, 'Vibrant', 'Pop colors & energy', _selectedTone == 'funny and light-hearted', () => setState(() => _selectedTone = 'funny and light-hearted')),
+              _stylePreset(context, Icons.eco_rounded, 'Documentary', 'Natural & authentic', _selectedTone == 'dreamy and peaceful', () => setState(() => _selectedTone = 'dreamy and peaceful')),
+            ],
+          ).animate().fadeIn(delay: 250.ms).slideX(begin: 0.1),
         ),
         const SizedBox(height: 24),
 
@@ -370,154 +300,206 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 20, 20, _contentBottomInset(context)),
       children: [
-        // Hero section
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withAlpha(76),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.map,
-                size: 40,
-                color: Colors.white,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Your Trips',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Get AI-powered itineraries tailored to your interests',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white.withAlpha(229),
-                ),
-              ),
-            ],
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms)
-            .slide(begin: const Offset(0, 0.3)),
-        const SizedBox(height: 24),
+        // --- Explorer Dashboard Stats ---
+        Row(
+          children: [
+            Expanded(child: _HubStatCard(label: 'Expeditions', value: '${trips.length}', icon: Icons.map_rounded, color: AppTheme.primary)),
+            const SizedBox(width: 16),
+            Expanded(child: _HubStatCard(label: 'Total Reels', value: '4', icon: Icons.auto_awesome_motion_rounded, color: AppTheme.accent)),
+          ],
+        ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
+        const SizedBox(height: 32),
 
-        // Quick sections
+        // --- Quick Operations ---
+        const Text('OPERATIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: FeatureCard(
-                icon: Icons.electric_bolt,
-                title: 'New Itinerary',
-                description: 'Personalized plan',
+                icon: Icons.electric_bolt_rounded,
+                title: 'Plan Expedition',
+                description: 'Tailored AI Plan',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.createTrip),
-              )
-                  .animate()
-                  .fadeIn(duration: 600.ms, delay: 100.ms),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: FeatureCard(
-                icon: Icons.map,
-                title: 'Explore Map',
-                description: 'See attractions',
-                onTap: () {
-                  // TODO: Navigate to map
-                },
-              )
-                  .animate()
-                  .fadeIn(duration: 600.ms, delay: 150.ms),
+                icon: Icons.public_rounded,
+                title: 'Global Explorer',
+                description: 'Discover Spots',
+                onTap: () {},
+              ),
             ),
           ],
-        ),
-        const SizedBox(height: 24),
+        ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
+        const SizedBox(height: 32),
 
-        // Previous trips
+        // --- Recent Expeditions ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('RECENT EXPEDITIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
+            TextButton(onPressed: () {}, child: const Text('VIEW ALL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primary))),
+          ],
+        ).animate().fadeIn(delay: 300.ms),
+        const SizedBox(height: 8),
+
         if (trips.isEmpty)
-          EmptyState(
-            icon: Icons.navigation,
-            title: 'No trips yet',
-            description: 'Create your first AI-powered trip plan',
-            actionLabel: 'Plan a Trip',
-            onAction: () => Navigator.pushNamed(context, AppRoutes.createTrip),
+          const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(
+              child: Text('Your world adventures begin here.', style: TextStyle(color: AppTheme.textHint, fontWeight: FontWeight.w500)),
+            ),
           )
-        else ...[
-          Text(
-            'Recent Trips',
-            style: Theme.of(context).textTheme.titleLarge,
-          )
-              .animate()
-              .fadeIn(duration: 600.ms, delay: 200.ms),
-          const SizedBox(height: 12),
+        else
           ...trips.take(5).toList().asMap().entries.map((e) {
-            final i = e.key;
             final trip = e.value;
-            // Generate a random sample image URL based on destination for demo
-            final sampleImg = 'https://source.unsplash.com/800x600/?${Uri.encodeComponent(trip.destination)},travel';
-            
-            return TicketCard(
-              destination: trip.destination,
-              title: '${trip.days} Day Adventure',
-              date: 'Upcoming', // Would bind to real date
-              duration: '${trip.days}d',
-              imageUrl: sampleImg,
-              onTap: () {
-                // TODO: View trip details
-              },
-            ).animate()
-             .fadeIn(duration: 600.ms, delay: Duration(milliseconds: 200 + (i * 100)))
-             .slideX(begin: 0.1, end: 0, curve: Curves.easeOutQuad);
+            return _PassportTripCard(trip: trip)
+              .animate()
+              .fadeIn(delay: (400 + (e.key * 100)).ms)
+              .slideX(begin: 0.05);
           }),
-        ],
-        const SizedBox(height: 16),
+        const SizedBox(height: 40),
       ],
     );
   }
 
-  Widget _toneCard(
+  Widget _stylePreset(
     BuildContext context,
+    IconData icon,
     String label,
-    String value, {
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
+    String sub,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: selected ? AppTheme.primaryColor : AppTheme.borderColor,
-            width: selected ? 2.4 : 2,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          color: selected ? AppTheme.primaryColor.withAlpha(18) : AppTheme.surfaceColor,
+          color: selected ? AppTheme.primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? AppTheme.primaryColor : AppTheme.borderColor),
+          boxShadow: selected ? [BoxShadow(color: AppTheme.primaryColor.withAlpha(50), blurRadius: 10, offset: const Offset(0, 4))] : null,
         ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: selected ? AppTheme.primaryColor : null,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: selected ? Colors.white : AppTheme.primaryColor),
+            const Spacer(),
+            Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: selected ? Colors.white : AppTheme.textPrimary)),
+            Text(sub, style: TextStyle(fontSize: 9, color: selected ? Colors.white70 : AppTheme.textHint, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HubStatCard extends StatelessWidget {
+  final String label, value;
+  final IconData icon;
+  final Color color;
+  const _HubStatCard({required this.label, required this.value, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.borderLight),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withAlpha(20), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 22),
           ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -1)),
+              Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textHint, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PassportTripCard extends StatelessWidget {
+  final TripModel trip;
+  const _PassportTripCard({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.itinerary, arguments: trip),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppTheme.borderLight),
+          boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 15, offset: const Offset(0, 8))],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(trip.destination.toUpperCase(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today_rounded, size: 12, color: AppTheme.textHint),
+                          const SizedBox(width: 6),
+                          Text('${trip.days} DAYS EXPEDITION', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.textHint)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: AppTheme.primary.withAlpha(20), borderRadius: BorderRadius.circular(12)),
+                  child: Text(trip.budget.toUpperCase(), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: AppTheme.primary)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    trip.interests.join(' • '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.borderLight),
+              ],
+            ),
+          ],
         ),
       ),
     );
