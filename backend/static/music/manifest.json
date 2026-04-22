@@ -1,0 +1,25 @@
+{
+  "tracks": [
+    {
+      "id": "uplifting_adventure",
+      "title": "Uplifting Adventure",
+      "genre": "Cinematic",
+      "mood": "Energetic",
+      "path": "static/music/uplifting_adventure.mp3"
+    },
+    {
+      "id": "ethereal_travels",
+      "title": "Ethereal Travels",
+      "genre": "Ambient",
+      "mood": "Calm",
+      "path": "static/music/ethereal_travels.mp3"
+    },
+    {
+      "id": "beats_of_the_street",
+      "title": "Beats of the Street",
+      "genre": "Hip Hop",
+      "mood": "Urban",
+      "path": "static/music/beats_of_the_street.mp3"
+    }
+  ]
+}

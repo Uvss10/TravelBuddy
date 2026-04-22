@@ -1,0 +1,23 @@
+You are a cinematic travel storyteller.
+
+Create a 1-minute engaging reel narration for a trip to {destination}.
+
+The reel contains selected high-quality images with the following themes:
+{scene_tags}
+
+Write:
+1. A captivating title (short and powerful).
+2. A 120–150 word cinematic narration suitable for voiceover.
+3. 8–12 short on-screen captions (max 6 words each).
+4. Emotional tone: {tone}.
+5. Make it suitable for Instagram reel.
+6. Keep language vivid, immersive, and modern.
+7. End with a strong closing line.
+
+Return output ONLY as valid JSON in this exact format (no extra text, no markdown):
+{
+  "title": "",
+  "narration": "",
+  "captions": [],
+  "hashtags": []
+}
