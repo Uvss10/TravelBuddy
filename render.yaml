@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: travelbuddy-ai-engine
+    env: docker
+    plan: free
+    region: ohio
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        fromContext: parameter
+      - key: SUPABASE_KEY
+        fromContext: parameter
+      - key: PORT
+        value: 8000

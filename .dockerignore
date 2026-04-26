@@ -1,0 +1,26 @@
+# ─── TravelBuddy Docker Ignore ───
+# Exclude folders that are not needed for the backend cloud engine
+
+# Mobile app
+mobile/
+
+# Local caches
+data/cache/
+data/selected_images/
+data/generated_videos/
+data/reel_drafts/
+
+# Python local envs
+venv/
+.env
+__pycache__/
+*.pyc
+
+# IDEs
+.vscode/
+.idea/
+.gemini/
+
+# Git
+.git/
+.gitignore
