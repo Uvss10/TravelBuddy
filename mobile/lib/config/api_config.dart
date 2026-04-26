@@ -27,6 +27,13 @@ class ApiConfig {
   static const String historySave     = '/history/save';
   static const String historyList     = '/history'; // /history/{user_id}
 
+  // ─── Reel Studio (multi-stage) ───────────────────────────────────────────────
+  static const String reelAnalyze       = '/reel/analyze';
+  static const String reelBuildTimeline = '/reel/build-timeline';
+  static const String reelRender        = '/reel/render';
+  static const String reelDraft         = '/reel/draft'; // /reel/draft/{id}
+  static const String reelThemes        = '/reel/themes';
+
   // ─── Timeouts ───────────────────────────────────────────────────────────────
   /// 60 s connect give the phone enough time to reach the server on slow Wi-Fi.
   static const Duration connectTimeout = Duration(seconds: 60);

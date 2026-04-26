@@ -11,6 +11,12 @@ import '../screens/trip/itinerary_screen.dart';
 import '../screens/trip/story_screen.dart';
 import '../screens/trip/reel_preview_screen.dart';
 import '../screens/trip/download_share_screen.dart';
+import '../screens/trip/reel_studio_screen.dart';
+import '../screens/trip/reel_curation_screen.dart';
+import '../screens/trip/reel_storyboard_screen.dart';
+import '../screens/trip/reel_atmosphere_screen.dart';
+import '../screens/trip/reel_annotation_screen.dart';
+import '../screens/trip/reel_production_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/discovery/discovery_screen.dart';
@@ -30,6 +36,13 @@ class AppRoutes {
   static const String story        = '/story';
   static const String reelPreview  = '/reel-preview';
   static const String downloadShare = '/download-share';
+  // ── Reel Studio (multi-stage) ──
+  static const String reelStudio    = '/reel-studio';
+  static const String reelCuration  = '/reel-curation';
+  static const String reelStoryboard = '/reel-storyboard';
+  static const String reelAtmosphere = '/reel-atmosphere';
+  static const String reelAnnotation = '/reel-annotation';
+  static const String reelProduction = '/reel-production';
   static const String profile      = '/profile';
   static const String settings     = '/settings';
   static const String discovery    = '/discovery';
@@ -81,6 +94,19 @@ class AppRoutes {
         return _slideRoute(ReelPreviewScreen(videoUrl: url), settings_);
       case downloadShare:
         return _slideRoute(const DownloadShareScreen(), settings_);
+      // ── Reel Studio routes ──────────────────────────────────────────────────
+      case reelStudio:
+        return _slideRoute(const ReelStudioScreen(), settings_);
+      case reelCuration:
+        return _slideRoute(const ReelCurationScreen(), settings_);
+      case reelStoryboard:
+        return _slideRoute(const ReelStoryboardScreen(), settings_);
+      case reelAtmosphere:
+        return _slideRoute(const ReelAtmosphereScreen(), settings_);
+      case reelAnnotation:
+        return _slideRoute(const ReelAnnotationScreen(), settings_);
+      case reelProduction:
+        return _slideRoute(const ReelProductionScreen(), settings_);
       case profile:
         return _slideRoute(const ProfileScreen(), settings_);
       case AppRoutes.settings:

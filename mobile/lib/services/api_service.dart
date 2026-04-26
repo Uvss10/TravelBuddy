@@ -270,6 +270,74 @@ class ApiService {
     }
   }
   
+  // ─── Reel Studio Stage 1: Analyze ────────────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> reelAnalyze(List<String> serverPaths) async {
+    try {
+      final resp = await _dio.post(
+        ApiConfig.reelAnalyze,
+        data: {'image_paths': serverPaths},
+        options: Options(receiveTimeout: const Duration(minutes: 3)),
+      );
+      return ApiResult.success(resp.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
+  // ─── Reel Studio Stage 2: Build Timeline ─────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> reelBuildTimeline({
+    required String draftId,
+    required List<Map<String, dynamic>> selectedPhotos,
+    required String theme,
+    required double energyLevel,
+    required int durationSeconds,
+  }) async {
+    try {
+      final resp = await _dio.post(
+        ApiConfig.reelBuildTimeline,
+        data: {
+          'draft_id': draftId,
+          'selected_photos': selectedPhotos,
+          'theme': theme,
+          'energy_level': energyLevel,
+          'duration_s': durationSeconds,
+        },
+        options: Options(receiveTimeout: const Duration(minutes: 2)),
+      );
+      return ApiResult.success(resp.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
+  // ─── Reel Studio Stage 3: Render ─────────────────────────────────────────────
+  Future<ApiResult<Map<String, dynamic>>> reelRender({
+    required String draftId,
+    required List<Map<String, dynamic>> slotOverrides,
+    required String destination,
+    required String theme,
+    required int durationSeconds,
+    String? audioPath,
+  }) async {
+    try {
+      final resp = await _dio.post(
+        ApiConfig.reelRender,
+        data: {
+          'draft_id': draftId,
+          'slot_overrides': slotOverrides,
+          'destination': destination,
+          'theme': theme,
+          'duration_s': durationSeconds,
+          if (audioPath != null) 'audio_path': audioPath,
+        },
+        options: Options(receiveTimeout: const Duration(minutes: 2)),
+      );
+      return ApiResult.success(resp.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
   // ─── Discovery: Nearby Spots ────────────────────────────────────────────────
   Future<ApiResult<List<dynamic>>> getNearbySpots(String location, {double? lat, double? lon}) async {
     try {
