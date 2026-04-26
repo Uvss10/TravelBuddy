@@ -7,8 +7,8 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SUPABASE_URL
-        fromContext: parameter
+        sync: true
       - key: SUPABASE_KEY
-        fromContext: parameter
+        sync: true
       - key: PORT
         value: 8000
