@@ -7,8 +7,8 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SUPABASE_URL
-        sync: true
+        value: "REPLACE_ME_IN_DASHBOARD"
       - key: SUPABASE_KEY
-        sync: true
+        value: "REPLACE_ME_IN_DASHBOARD"
       - key: PORT
         value: 8000
