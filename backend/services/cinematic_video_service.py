@@ -146,14 +146,22 @@ def _render_cinematic(
             "-pix_fmt", "yuv420p",
             tmp_silent
         ]
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         
         def write_frame(frame: np.ndarray):
-            if proc.stdin: proc.stdin.write(frame.tobytes())
+            if proc.stdin:
+                try:
+                    proc.stdin.write(frame.tobytes())
+                except BrokenPipeError:
+                    # ffmpeg likely crashed/exited early
+                    pass
             
         def release_writer():
             if proc.stdin: proc.stdin.close()
-            proc.wait()
+            stdout, stderr = proc.communicate()
+            if proc.returncode != 0:
+                err_msg = stderr.decode(errors='ignore') if stderr else "Unknown ffmpeg error"
+                print(f"[Cinematic] ffmpeg render error (code {proc.returncode}): {err_msg}")
     else:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         writer = cv2.VideoWriter(tmp_silent, fourcc, fps, (REEL_W, REEL_H))
@@ -311,7 +319,7 @@ def _mux_audio(video_path: str, audio_path: str, out_path: str, duration_s: int 
     ]
     print(f"[Audio] Muxing: {ffmpeg} ...")
     try:
-        result = subprocess.run(cmd, capture_output=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, timeout=300)
         if result.returncode != 0:
             print(f"[Audio] ffmpeg error:\n{result.stderr.decode(errors='ignore')}")
             shutil.copy(video_path, out_path)
