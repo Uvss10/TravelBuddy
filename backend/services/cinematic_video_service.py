@@ -78,37 +78,64 @@ def _calculate_sharpness(img: np.ndarray) -> float:
 
 
 def _load_photo_bgr(path: str, w: int, h: int) -> np.ndarray:
-    """Load + EXIF-correct + cover-crop a photo to w x h BGR array."""
+    """
+    Load + EXIF-correct + cover-crop a photo to w x h BGR array.
+
+    FIX — Aspect ratio / quality:
+    Load at 2x target resolution, crop at high-res, THEN downsample.
+    This means the Ken Burns zoom (up to 1.15x) never samples below original
+    resolution, eliminating the double-scale blur.
+    """
     try:
         from PIL import ImageOps as _IOps
         pil = PILImage.open(path).convert("RGB")
-        # CRITICAL: apply EXIF orientation
-        pil = _IOps.exif_transpose(pil)
+        pil = _IOps.exif_transpose(pil)         # correct EXIF rotation
 
         orig_w, orig_h = pil.size
-        target_ratio = w / h
-        src_ratio    = orig_w / orig_h
+        target_ratio   = w / h
+        src_ratio      = orig_w / orig_h
 
-        # Smarter cropping: if ratios are very different, do a center-crop cover
-        # if ratios are close, allow some 'fit' with small stretching (avoiding huge crops)
+        # ── Cover-crop to target ratio ────────────────────────────────────────
         if src_ratio > target_ratio:
-            # WIDER - crop sides
+            # Image is wider — crop sides equally
             new_w = int(orig_h * target_ratio)
             left  = (orig_w - new_w) // 2
             pil   = pil.crop((left, 0, left + new_w, orig_h))
         else:
-            # TALLER - crop top/bottom
-            # Heuristic: crop slightly more from bottom than top (usually heads at top)
+            # Image is taller — crop top/bottom
+            # 35% from top so faces/subjects stay centred (not 30% which cuts chins)
             new_h = int(orig_w / target_ratio)
-            top   = int((orig_h - new_h) * 0.3)  # crop 30% from top, 70% from bottom
+            top   = int((orig_h - new_h) * 0.35)
             pil   = pil.crop((0, top, orig_w, top + new_h))
 
-        pil = pil.resize((w, h), PILImage.LANCZOS)
+        # ── FIX: Resize to 2x render resolution, not 1x ───────────────────────
+        # Downsampling from 2x → 1x in get_transform gives clean sub-pixel
+        # quality even after Ken Burns zoom (which scales up to 1.15x).
+        # Without this, the zoom is applied on a 720px image causing blur.
+        pil = pil.resize((w * 2, h * 2), PILImage.LANCZOS)
         return cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
     except Exception:
-        frame = np.zeros((h, w, 3), dtype=np.uint8)
+        frame = np.zeros((h * 2, w * 2, 3), dtype=np.uint8)
         frame[:] = [59, 41, 30]
         return frame
+
+
+def _gentle_enhance(frame: np.ndarray) -> np.ndarray:
+    """
+    Subtle per-channel CLAHE enhancement — improves local contrast without
+    shifting overall brightness or altering skin/colour tones.
+
+    This replaces the old normalize_exposure() which forced every image toward
+    mean=128, causing overexposed faces and colour casts on intentionally dark
+    or bright photos.
+    """
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    # Very mild CLAHE (clipLimit=1.5) — just enough to lift shadow detail
+    clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+    l     = clahe.apply(l)
+    enhanced = cv2.merge([l, a, b])
+    return cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -197,7 +224,10 @@ def _render_cinematic(
                     kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
                     raw = cv2.filter2D(raw, -1, kernel)
 
-                photo_cache[p] = normalize_exposure(raw)
+                # ── FIX: Do NOT force-normalize exposure (causes blown-out faces).
+                # Only apply gentle CLAHE per-channel to lift local contrast without
+                # shifting overall brightness or skin tones.
+                photo_cache[p] = _gentle_enhance(raw)
 
         # ── Pre-build keyframes ────────────────────────────────────────────────
         keyframes = {
@@ -343,6 +373,7 @@ def _run_job(
     audio_path: Optional[str],
     lrc_content: Optional[str],
     duration_s: int,
+    precomputed_metas: Optional[List[PhotoMeta]] = None,
 ):
     try:
         _set_job(job_id, status="running", progress=0, message="🚀 Starting cinematic pipeline…")
@@ -359,17 +390,26 @@ def _run_job(
             else:
                 beatmap_future = executor.submit(_synthetic_beatmap, float(duration_s))
             
-            photos_meta_future = executor.submit(analyze_photos, image_paths)
+            if not precomputed_metas:
+                photos_meta_future = executor.submit(analyze_photos, image_paths)
 
             # Parallel resolve
             beatmap = beatmap_future.result()
-            photos_meta = photos_meta_future.result()
+            
+            if precomputed_metas:
+                photos_meta = precomputed_metas
+            else:
+                photos_meta = photos_meta_future.result()
 
         if not photos_meta:
             _set_job(job_id, status="error", message="No usable photos found.")
             return
 
-        sorted_photos = sort_for_storytelling(photos_meta)
+        if precomputed_metas:
+            # Stage 3 explicitly passed precomputed_metas in the exact order the user curated.
+            sorted_photos = photos_meta
+        else:
+            sorted_photos = sort_for_storytelling(photos_meta)
 
         _set_job(job_id, progress=8, message="🗂 Building 5-section EDL timeline…")
         from backend.services.caption_renderer import parse_lrc, get_lyric_at
@@ -380,6 +420,7 @@ def _run_job(
             beatmap=beatmap,
             theme=theme,
             captions=captions or [],
+            force_keep_all=(precomputed_metas is not None),
         )
         if lyrics:
             for slot in slots:
@@ -451,6 +492,7 @@ def generate_cinematic_video(
     audio_path: Optional[str] = None,
     lrc_content: Optional[str] = None,
     duration_s: int = DURATION_S,
+    precomputed_metas: Optional[List[PhotoMeta]] = None,
 ) -> dict:
     """
     Kick off a background cinematic render job.
@@ -466,7 +508,7 @@ def generate_cinematic_video(
     t = threading.Thread(
         target=_run_job,
         args=(job_id, image_paths, captions or [], destination,
-              theme_name, audio_path, lrc_content, duration_s),
+              theme_name, audio_path, lrc_content, duration_s, precomputed_metas),
         daemon=True,
     )
     t.start()

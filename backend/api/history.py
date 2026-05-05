@@ -44,3 +44,16 @@ def get_user_history(user_id: str):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/{trip_id}")
+def delete_trip(trip_id: int):
+    """
+    Delete a saved trip/reel from the user's history.
+    """
+    try:
+        response = supabase.table("trips").delete().eq("id", trip_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Trip not found or already deleted.")
+        return {"status": "success", "message": f"Trip {trip_id} successfully deleted."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

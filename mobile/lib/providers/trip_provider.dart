@@ -173,18 +173,79 @@ class TripProvider extends ChangeNotifier {
 
     // Finalize & Save
     if (_currentTrip != null) {
-      _tripHistory.insert(0, _currentTrip!);
-      _saveHistory();
-      
-      // SYNC TO CLOUD if logged in
-      if (_userId != null) {
-        _api.saveTripToCloud(userId: _userId!, trip: _currentTrip!, videoUrl: _generatedVideoUrl);
-      }
+      saveCurrentTrip();
     }
 
     notifyListeners();
     return true;
   }
+
+  /// Manually save the currently active trip to history
+  void saveCurrentTrip() {
+    if (_currentTrip == null) return;
+    
+    // Check if it already exists in history (by ID) to avoid duplicates
+    final index = _tripHistory.indexWhere((t) => t.id == _currentTrip!.id);
+    if (index >= 0) {
+      _tripHistory[index] = _currentTrip!;
+    } else {
+      _tripHistory.insert(0, _currentTrip!);
+    }
+    
+    _saveHistory();
+    
+    // SYNC TO CLOUD if logged in
+    if (_userId != null) {
+      _api.saveTripToCloud(userId: _userId!, trip: _currentTrip!, videoUrl: _generatedVideoUrl);
+    }
+    notifyListeners();
+  }
+
+  /// Add a generic trip object to history (used for Reels created outside itinerary flow)
+  void addTripToHistory(TripModel trip) {
+    final index = _tripHistory.indexWhere((t) => t.id == trip.id);
+    if (index >= 0) {
+      _tripHistory[index] = trip;
+    } else {
+      _tripHistory.insert(0, trip);
+    }
+    _saveHistory();
+    
+    if (_userId != null) {
+      _api.saveTripToCloud(userId: _userId!, trip: trip, videoUrl: trip.videoUrl);
+    }
+    notifyListeners();
+  }
+
+  /// Delete a reel from history (removes video URL only, keeps the trip record).
+  void deleteReel(String tripId) {
+    final index = _tripHistory.indexWhere((t) => t.id == tripId);
+    if (index >= 0) {
+      final updatedTrip = _tripHistory[index].copyWith(videoUrl: '');
+      _tripHistory[index] = updatedTrip;
+      _saveHistory();
+      
+      if (_userId != null) {
+        _api.saveTripToCloud(userId: _userId!, trip: updatedTrip, videoUrl: '');
+      }
+      notifyListeners();
+    }
+  }
+
+  /// Permanently remove a trip from history entirely.
+  Future<void> removeTrip(String tripId) async {
+    _tripHistory.removeWhere((t) => t.id == tripId);
+    _saveHistory();
+    
+    // Cloud Delete if logged in and ID is numeric (server-side ID)
+    final numericId = int.tryParse(tripId);
+    if (_userId != null && numericId != null) {
+      await _api.deleteTrip(numericId);
+    }
+    
+    notifyListeners();
+  }
+
 
   void reset() {
     _itineraryState = LoadState.idle; _imageState = LoadState.idle; _storyState = LoadState.idle;

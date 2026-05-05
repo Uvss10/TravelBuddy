@@ -9,10 +9,13 @@ import 'config/app_navigator.dart';
 import 'providers/auth_provider.dart';
 import 'providers/trip_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/language_provider.dart';
 import 'providers/video_generation_provider.dart';
 import 'providers/reel_draft_provider.dart';
 import 'theme/app_theme.dart';
 import 'widgets/global_generation_overlay.dart';
+import 'services/config_service.dart';
+import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +33,12 @@ void main() async {
     anonKey: dotenv.get('SUPABASE_KEY', fallback: ''),
   );
 
+  // ── Dynamic Backend URL (Strictly Google Drive) ──────────────────────────
+  // Fetches backend_url and update info from your Google Drive version.json.
+  await ConfigService().initialize();
+  await ConfigService().refreshFromGoogleDrive('19MoogiD9DYQ5Fnb_lHBcTAFxdy-nKQ6o');
+  ApiService().reinitialize(); // Rebuild Dio with the fresh URL
+
   // Lock to portrait orientation
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -40,6 +49,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TripProvider()),
         ChangeNotifierProvider(create: (_) => VideoGenerationProvider()),

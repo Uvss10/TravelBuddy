@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/trip_provider.dart';
 import '../config/routes.dart';
 import '../theme/app_theme.dart';
+import 'package:dio/dio.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../config/api_config.dart';
 import '../widgets/travel_loaders.dart';
+import '../services/config_service.dart';
 
 /// Beautiful modern splash screen with animations
 class SplashScreen extends StatefulWidget {
@@ -48,16 +53,115 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 3000));
+    // 1. Wait for AuthProvider to finish restoring session from cache/Supabase.
+    //    Without this wait, the app reads isLoggedIn=false before _restore() completes
+    //    and always sends the user back to the login screen on every launch.
+    final auth = context.read<AuthProvider>();
+
+    // Show splash for minimum 2s while session is being restored in background
+    await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
 
-    final auth = context.read<AuthProvider>();
+    // Poll until _restore() finishes (usually <300ms after the 2s delay, max 4s safety)
+    int waited = 0;
+    while (auth.isLoading && waited < 4000) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      waited += 100;
+    }
+    if (!mounted) return;
+
+    // 2. Check for OTA Updates (non-blocking — if backend offline, skip)
+    try {
+      final dio = Dio();
+      final versionUrl = '${ConfigService().backendUrl}${ApiConfig.versionCheck}';
+      final response = await dio.get(
+        versionUrl,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 5),
+          headers: {'bypass-tunnel-reminder': 'true', 'Bypass-Tunnel-Reminder': 'true'},
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+
+        // ── Integer build-number comparison ──────────────────────────────────
+        // backend/api/health.py returns latest_version as an int (e.g. 6).
+        // PackageInfo.buildNumber matches pubspec.yaml version: 1.0.0+5 → "5".
+        // The release pipeline (scripts/release.py) bumps both automatically.
+        final latestBuild = (data['latest_version'] as num?)?.toInt() ?? 0;
+        final packageInfo = await PackageInfo.fromPlatform();
+        final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
+
+        if (latestBuild > currentBuild) {
+          if (!mounted) return;
+          final apkUrl    = data['apk_url']      as String? ?? '';
+          final notes     = data['release_notes'] as String? ?? 'New features and improvements.';
+          final isMandatory = data['is_mandatory'] as bool? ?? true;
+
+          showDialog(
+            context: context,
+            barrierDismissible: !isMandatory,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.system_update_rounded, color: AppTheme.primary),
+                  const SizedBox(width: 10),
+                  const Text("Update Available", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Build v$latestBuild is now available!  (You have v$currentBuild)",
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(notes, style: const TextStyle(fontSize: 13, color: AppTheme.textHint)),
+                ],
+              ),
+              actions: [
+                if (!isMandatory)
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text("Later"),
+                  ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    final url = Uri.parse(apkUrl);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: const Text(
+                    "DOWNLOAD UPDATE",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+          );
+          if (isMandatory) return; // Halt navigation until user downloads
+        }
+      }
+    } catch (_) {
+      // Backend offline or version check failed — proceed normally
+    }
+
+    // 3. Normal Navigation Flow
+    if (!mounted) return;
     final tripProvider = context.read<TripProvider>();
 
     if (!auth.onboardingDone) {
       Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
     } else if (auth.isLoggedIn) {
-      // Sync user ID to TripProvider for history loading
       tripProvider.setUserId(auth.user?.id);
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {

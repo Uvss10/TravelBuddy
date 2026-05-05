@@ -54,18 +54,18 @@ class GlobalGenerationOverlay extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: AppTheme.lg, vertical: AppTheme.md),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor.withValues(alpha: 0.95),
+                      color: Theme.of(context).cardColor.withOpacity(0.95),
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
+                          color: Colors.black.withOpacity(0.15),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
                       ],
                       border: Border.all(
-                        color: isCompleted ? AppTheme.successColor.withValues(alpha: 0.5) :
-                               isError ? AppTheme.errorColor.withValues(alpha: 0.5) :
+                        color: isCompleted ? AppTheme.successColor.withOpacity(0.5) :
+                               isError ? AppTheme.errorColor.withOpacity(0.5) :
                                AppTheme.borderColor,
                       ),
                     ),

@@ -69,21 +69,17 @@ def remove_duplicates(image_data, threshold=10):
                 current_group.append(image_data[j])
                 processed_indices.add(j)
         
-        # Select best image from group using a weighted sum of available metrics
-        # We give higher weight to face score and sharpness within a duplicate group
+        # Select best image from group
         def get_selection_score(item):
-            # Sharpness (Sobel mean) typically 10-50
-            # Blur (Laplacian var) typically 100-2000
-            # Face score 0-10
-            # Entropy 0-8
-            
-            # Since we are comparing near-identical images, raw comparison is okay.
-            # We scale blur down to be comparable to sharpness.
+            # v2: Use overall_quality from PhotoMeta if available
+            if 'meta' in item:
+                return item['meta'].overall_quality
+                
+            # Fallback for legacy items
             s_sharp = item.get('sharpness', 0)
-            s_blur  = item.get('blur', 0) / 10.0  # Bring into 10-200 range
-            s_face  = item.get('face', 0) * 5.0   # Boost face importance (0-50 range)
+            s_blur  = item.get('blur', 0) / 10.0
+            s_face  = item.get('face', 0) * 5.0
             s_ent   = item.get('entropy', 0)
-            
             return s_sharp + s_blur + s_face + s_ent
 
         best_image = max(current_group, key=get_selection_score)

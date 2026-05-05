@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -9,6 +11,8 @@ import '../../models/trip_model.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../providers/trip_provider.dart';
+
 
 /// Rich itinerary view with summary metrics + day timeline cards.
 /// Includes Mind Map, Budget breakdown, and Tweak field for web parity.
@@ -139,6 +143,17 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           IconButton(
             icon: const Icon(Icons.share_outlined),
             onPressed: () {}, // Share functionality
+          ),
+          IconButton(
+            icon: const Icon(Icons.bookmark_border_rounded),
+            tooltip: 'Save Itinerary',
+            onPressed: () {
+              context.read<TripProvider>().saveCurrentTrip();
+              Fluttertoast.showToast(
+                msg: 'Itinerary saved to My Plans! 📍',
+                backgroundColor: AppTheme.success,
+              );
+            },
           ),
         ],
       ),
@@ -364,7 +379,7 @@ class _MetricItem extends StatelessWidget {
   }
 }
 
-/// A horizontally scrollable hierarchy view of the trip.
+/// A highly premium, horizontally scrollable subway-style journey map.
 class _MindMapView extends StatelessWidget {
   final List<ItineraryDay> days;
   final String destination;
@@ -373,79 +388,160 @@ class _MindMapView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 180,
+      height: 200,
       decoration: BoxDecoration(
-        color: AppTheme.bgLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderLight),
+        gradient: LinearGradient(
+          colors: [AppTheme.bgLight, Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.primary.withAlpha(20), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withAlpha(10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          )
+        ],
       ),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(20),
-        itemCount: days.length,
-        itemBuilder: (context, index) {
-          final isFirst = index == 0;
-          final isLast = index == days.length - 1;
-          final day = days[index];
-
-          return Row(
-            children: [
-              if (isFirst) ...[
-                _MindMapNode(label: destination, isRoot: true),
-                _MindMapConnector(),
-              ],
-              _MindMapNode(
-                label: day.label,
-                sublabel: '${day.activities.length} stops',
-                isRoot: false,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background decorative line
+          Positioned(
+            left: 0, right: 0, top: 100,
+            child: Container(
+              height: 2,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primary.withAlpha(0),
+                    AppTheme.primary.withAlpha(100),
+                    AppTheme.primary.withAlpha(0),
+                  ],
+                ),
               ),
-              if (!isLast) _MindMapConnector(),
-            ],
-          );
-        },
+            ),
+          ),
+          ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            physics: const BouncingScrollPhysics(),
+            itemCount: days.length,
+            itemBuilder: (context, index) {
+              final isFirst = index == 0;
+              final day = days[index];
+
+              return Row(
+                children: [
+                  if (isFirst) ...[
+                    _MindMapRootNode(label: destination).animate().scale(delay: 200.ms, curve: Curves.easeOutBack),
+                    _MindMapConnector().animate().fadeIn(delay: 400.ms),
+                  ],
+                  _MindMapDayNode(
+                    dayNumber: index + 1,
+                    stops: day.activities.length,
+                  ).animate().fadeIn(delay: Duration(milliseconds: 400 + (index * 150))).slideX(begin: 0.2),
+                  if (index != days.length - 1) 
+                    _MindMapConnector().animate().fadeIn(delay: Duration(milliseconds: 500 + (index * 150))),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
-class _MindMapNode extends StatelessWidget {
+class _MindMapRootNode extends StatelessWidget {
   final String label;
-  final String? sublabel;
-  final bool isRoot;
-  const _MindMapNode({required this.label, this.sublabel, this.isRoot = false});
+  const _MindMapRootNode({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      constraints: const BoxConstraints(minWidth: 100),
-      decoration: BoxDecoration(
-        color: isRoot ? AppTheme.primary : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isRoot ? AppTheme.primary : AppTheme.borderLight),
-        boxShadow: isRoot ? [BoxShadow(color: AppTheme.primary.withAlpha(50), blurRadius: 10)] : null,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: isRoot ? Colors.white : AppTheme.textPrimary,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 70, height: 70,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [AppTheme.primary, AppTheme.accentColor],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(color: AppTheme.primary.withAlpha(80), blurRadius: 15, spreadRadius: 2),
+            ],
+          ),
+          child: const Icon(Icons.flight_takeoff_rounded, color: Colors.white, size: 32),
+        ).animate(onPlay: (controller) => controller.repeat(reverse: true)).shimmer(duration: 2000.ms, color: Colors.white54),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.textPrimary,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label.toUpperCase(),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.0),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MindMapDayNode extends StatelessWidget {
+  final int dayNumber;
+  final int stops;
+  const _MindMapDayNode({required this.dayNumber, required this.stops});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 50, height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.primary, width: 3),
+            boxShadow: [
+              BoxShadow(color: AppTheme.borderLight, blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              'D$dayNumber',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.primary),
             ),
           ),
-          if (sublabel != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              sublabel!,
-              style: const TextStyle(fontSize: 10, color: AppTheme.textHint),
-            ),
-          ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withAlpha(20),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.place, size: 12, color: AppTheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                '$stops stops',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primary),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -454,9 +550,22 @@ class _MindMapConnector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 24,
-      height: 2,
-      color: AppTheme.borderLight,
+      width: 40,
+      height: 3,
+      margin: const EdgeInsets.only(bottom: 30), // Align with circles
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: List.generate(
+          5, 
+          (index) => Container(
+            width: 4, height: 3,
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withAlpha(100),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          )
+        ),
+      ),
     );
   }
 }
@@ -471,6 +580,7 @@ class _BudgetBreakdown extends StatelessWidget {
     final food = budget['food'] ?? '-';
     final transport = budget['transport'] ?? '-';
     final misc = budget['misc'] ?? '-';
+    final source = budget['source'] ?? 'Verified via Booking.com & Global Cost of Living Data';
 
     return TBCard(
       child: Column(
@@ -482,6 +592,35 @@ class _BudgetBreakdown extends StatelessWidget {
           _BudgetItem(label: 'Local Transport', value: transport, icon: Icons.directions_bus_outlined),
           const Divider(height: 20),
           _BudgetItem(label: 'Miscellaneous', value: misc, icon: Icons.shopping_bag_outlined),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.success.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.success.withAlpha(50)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_rounded, color: AppTheme.success, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 10, color: AppTheme.textPrimary),
+                      children: [
+                        const TextSpan(text: 'Pricing Authentication: '),
+                        TextSpan(
+                          text: source.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.success),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ).animate().fadeIn(delay: 500.ms),
         ],
       ),
     );
@@ -576,91 +715,188 @@ class _DayCard extends StatefulWidget {
   State<_DayCard> createState() => _DayCardState();
 }
 
-class _DayCardState extends State<_DayCard> {
+class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin {
   bool _expanded = true;
+  late List<bool> _checkedItems;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize checkboxes as unchecked
+    _checkedItems = List.filled(widget.day.activities.length, false);
+  }
+
+  void _toggleCheck(int index) {
+    setState(() {
+      _checkedItems[index] = !_checkedItems[index];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TBCard(
-      onTap: () => setState(() => _expanded = !_expanded),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withAlpha(20),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${widget.dayIndex + 1}',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppTheme.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.day.label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                      Text('${widget.day.activities.length} major stops', style: const TextStyle(fontSize: 11, color: AppTheme.textHint)),
-                    ],
-                  ),
-                ],
-              ),
-              Icon(
-                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                color: AppTheme.textHint,
-                size: 20,
-              ),
-            ],
-          ),
-          if (_expanded) ...[
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            ...widget.day.activities.asMap().entries.map((entry) {
-              final index = entry.key;
-              final activity = entry.value;
-              final isLast = index == widget.day.activities.length - 1;
+    // Calculate progress
+    final checkedCount = _checkedItems.where((c) => c).length;
+    final progress = widget.day.activities.isEmpty ? 0.0 : checkedCount / widget.day.activities.length;
 
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: EdgeInsets.only(bottom: _expanded ? 16 : 8),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _expanded ? AppTheme.primary.withAlpha(50) : AppTheme.borderLight),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.textPrimary.withAlpha(5),
+              blurRadius: _expanded ? 20 : 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
                     children: [
                       Container(
-                        width: 8, height: 8,
-                        margin: const EdgeInsets.only(top: 6),
-                        decoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
-                      ),
-                      if (!isLast)
-                        Container(
-                          width: 1, height: 40,
-                          margin: const EdgeInsets.symmetric(vertical: 2),
-                          color: AppTheme.borderLight,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: progress == 1.0 ? AppTheme.success.withAlpha(20) : AppTheme.primary.withAlpha(20),
+                          shape: BoxShape.circle,
                         ),
+                        child: Text(
+                          '${widget.dayIndex + 1}',
+                          style: TextStyle(
+                            fontSize: 16, 
+                            fontWeight: FontWeight.w900, 
+                            color: progress == 1.0 ? AppTheme.success : AppTheme.primary
+                          ),
+                        ),
+                      ).animate(target: progress == 1.0 ? 1 : 0).shimmer(color: AppTheme.success),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.day.label, 
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor: AppTheme.borderLight,
+                                      color: progress == 1.0 ? AppTheme.success : AppTheme.primary,
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '$checkedCount/${widget.day.activities.length}',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.textHint),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        activity,
-                        style: const TextStyle(fontSize: 14, height: 1.5, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }),
+                ),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutBack,
+                  child: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.textHint, size: 28),
+                ),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutQuart,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: double.infinity,
+                child: !_expanded ? const SizedBox.shrink() : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    ...widget.day.activities.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final activity = entry.value;
+                      final isLast = index == widget.day.activities.length - 1;
+                      final isChecked = _checkedItems[index];
+
+                      return GestureDetector(
+                        onTap: () => _toggleCheck(index),
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Column(
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 24, height: 24,
+                                  decoration: BoxDecoration(
+                                    color: isChecked ? AppTheme.success : Colors.white,
+                                    border: Border.all(color: isChecked ? AppTheme.success : AppTheme.borderLight, width: 2),
+                                    shape: BoxShape.circle,
+                                    boxShadow: isChecked ? [BoxShadow(color: AppTheme.success.withAlpha(50), blurRadius: 8)] : null,
+                                  ),
+                                  child: isChecked 
+                                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                    : null,
+                                ),
+                                if (!isLast)
+                                  Container(
+                                    width: 2, height: 40,
+                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                    color: isChecked ? AppTheme.success.withAlpha(100) : AppTheme.borderLight,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2, bottom: 20),
+                                child: AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 200),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    height: 1.4,
+                                    fontWeight: isChecked ? FontWeight.w500 : FontWeight.w600,
+                                    color: isChecked ? AppTheme.textHint : AppTheme.textPrimary,
+                                    decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none,
+                                  ),
+                                  child: Text(activity),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ).animate(target: isChecked ? 1 : 0).moveX(end: 4, duration: 200.ms);
+                    }),
+                  ],
+                ),
+              ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }

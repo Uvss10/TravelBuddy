@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/reel_draft_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../config/routes.dart';
+import '../../services/config_service.dart';
 
 /// STAGE 1 — Curation Wall
 /// Shows all analyzed photos grouped by type (Landscapes / Portraits / Details).
@@ -285,7 +286,11 @@ class _PhotoCell extends StatelessWidget {
   const _PhotoCell({required this.photo});
 
   Widget _buildPhotoThumb(String path) {
-    // Rich v2 visual: color-coded by dominant trait + score badges
+    final String fullUrl = path.startsWith('http') 
+        ? path 
+        : '${ConfigService().backendUrl}${path.startsWith('/') ? '' : '/'}$path';
+
+    // Traits visual mapping
     final Color baseColor;
     final IconData mainIcon;
     final String mainLabel;
@@ -321,36 +326,75 @@ class _PhotoCell extends StatelessWidget {
     }
 
     return Container(
-      color: baseColor.withOpacity(0.12),
+      color: const Color(0xFF1A1A2E),
       width: double.infinity,
       height: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Icon(mainIcon, color: baseColor.withOpacity(0.7), size: 22),
-          const SizedBox(height: 2),
-          Text(
-            mainLabel,
-            style: TextStyle(color: baseColor.withOpacity(0.9), fontSize: 8, fontWeight: FontWeight.w700),
+          // THE REAL IMAGE
+          Image.network(
+            fullUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, _, __) => Center(
+              child: Icon(mainIcon, color: baseColor.withOpacity(0.5), size: 32),
+            ),
+            loadingBuilder: (ctx, child, progress) {
+              if (progress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(baseColor.withOpacity(0.4)),
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 2),
-          // Quality score bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: photo.quality,
-                minHeight: 3,
-                backgroundColor: Colors.white12,
-                valueColor: AlwaysStoppedAnimation(baseColor.withOpacity(0.7)),
+          
+          // Subtle overlay with trait icon for quick ID
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.3),
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.4),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            '${(photo.quality * 100).toInt()}%',
-            style: TextStyle(color: baseColor.withOpacity(0.6), fontSize: 7, fontWeight: FontWeight.w600),
+          
+          // Metadata Overlay
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(),
+              Icon(mainIcon, color: Colors.white70, size: 20),
+              const SizedBox(height: 2),
+              Text(
+                mainLabel,
+                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              // Quality score bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: photo.quality,
+                    minHeight: 3,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation(baseColor),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
           ),
         ],
       ),

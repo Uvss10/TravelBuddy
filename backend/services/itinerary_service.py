@@ -3,7 +3,7 @@ import json
 from backend.schemas.itinerary_schema import ItineraryRequest, ItineraryEditRequest
 from backend.utils import call_llm
 from backend.services.budget_service import estimate_budget
-from rag.rag_pipeline import rag_generate_itinerary, rag_edit_itinerary
+from backend.rag.pipeline import rag_generate_itinerary, rag_edit_itinerary
 
 # Load prompt template once
 _PROMPT_PATH = os.path.join(
@@ -29,17 +29,21 @@ _PROMPT_TEMPLATE = _load_prompt()
 
 def _parse_itinerary_json(raw: str):
     """Extract JSON from LLM output, stripping markdown if present."""
+    import re
     raw = raw.strip()
-    # Remove markdown fences
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        raw = "\n".join(l for l in lines if not l.strip().startswith("```"))
-    # Find outermost { }
-    start = raw.find("{")
-    end   = raw.rfind("}") + 1
-    if start < 0 or end <= 0:
-        raise ValueError("No JSON found")
-    return json.loads(raw[start:end])
+    # Try to find a JSON block within markdown fences
+    match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw, re.DOTALL)
+    if match:
+        raw_json = match.group(1)
+    else:
+        # Find outermost { }
+        start = raw.find("{")
+        end   = raw.rfind("}") + 1
+        if start < 0 or end <= 0:
+            raise ValueError("No JSON found")
+        raw_json = raw[start:end]
+        
+    return json.loads(raw_json)
 
 
 def generate_itinerary(request: ItineraryRequest):
@@ -56,20 +60,17 @@ def generate_itinerary(request: ItineraryRequest):
         custom_constraints=request.custom_constraints
     )
 
-    budget_estimation = estimate_budget(request.days, request.budget)
+    budget_estimation = estimate_budget(request.destination, request.days, request.budget)
 
     # 2. PARSE OUTPUT
     try:
         itinerary_output = _parse_itinerary_json(raw_output)
-    except (ValueError, json.JSONDecodeError, TypeError):
-        # Fallback to a structured object so Flutter doesn't crash on type cast
+    except (ValueError, json.JSONDecodeError, TypeError) as e:
+        print(f"[ItineraryService] JSON Parse Error: {e}. Raw output: {raw_output}")
+        # Fallback to a structured object that the Flutter app can parse as legacy format
         itinerary_output = {
-            "trip_summary": {
-                "destination": request.destination,
-                "duration_days": request.days,
-                "note": "AI generated a text-only itinerary."
-            },
-            "raw_text": raw_output
+            "Day 1": ["AI generated a text-only itinerary or encountered an error parsing it.", "Please try regenerating the itinerary."],
+            "Raw Response": raw_output.split('\n')[:10]  # Just send a bit of it so we don't overwhelm the UI
         }
 
     return {

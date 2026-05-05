@@ -210,6 +210,7 @@ def build_timeline(
     beatmap: BeatMap,
     theme: Theme,
     captions: Optional[List[str]] = None,
+    force_keep_all: bool = False,
 ) -> List[TimelineSlot]:
     """
     Produce a list of TimelineSlot objects — the master cinematic edit plan.
@@ -222,12 +223,9 @@ def build_timeline(
     total_duration = beatmap.duration_s
 
     # ── 1. Smart Sampling: Don't use all 50 photos if it makes the reel too "busy"
-    # Target: 2.5s to 4s per photo for a cinematic look.
-    # 60s @ 3s/photo = 20 photos.
-    # 120s @ 3s/photo = 40 photos.
     target_photo_count = max(5, int(total_duration / 2.8)) # e.g. 21 photos for 60s
     
-    if n_original > target_photo_count:
+    if not force_keep_all and n_original > target_photo_count:
         # We have too many photos. Step through the sorted (high quality) list 
         # but take a subset to maintain variety and story flow.
         step = n_original / target_photo_count

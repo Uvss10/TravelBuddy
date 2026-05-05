@@ -1,7 +1,7 @@
 name: travel_buddy
 description: TravelBuddy AI - Smart travel planning with AI-powered itineraries and reel generation.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+9
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -83,6 +83,7 @@ dependencies:
 
   # Map display
   url_launcher: ^6.2.4
+  package_info_plus: ^9.0.0
 
 dev_dependencies:
   flutter_test:

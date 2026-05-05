@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../services/config_service.dart';
+import '../../providers/language_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/trip_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -13,7 +16,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/custom_widgets.dart';
 import '../profile/profile_screen.dart';
-
+import '../trip/reel_studio_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -34,6 +37,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _loadCurrentCity();
+    
+    // Check for updates after a short delay
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+  }
+
+  void _checkForUpdates() {
+    final config = ConfigService();
+    if (config.hasUpdate) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.system_update_rounded, color: AppTheme.primary),
+              SizedBox(width: 12),
+              Text('Update Available! 🚀'),
+            ],
+          ),
+          content: Text(config.updateMessage ?? 'A new version of TravelBuddy is ready for you.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('LATER', style: TextStyle(color: AppTheme.textHint)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (config.apkUrl != null) {
+                  launchUrl(Uri.parse(config.apkUrl!), mode: LaunchMode.externalApplication);
+                }
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('UPDATE NOW', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _loadCurrentCity() async {
@@ -95,12 +143,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     Navigator.pushNamed(
       context,
-      AppRoutes.photoUpload,
-      arguments: {
-        'destination': destination,
-        'scene_tags': ['travel', 'landscape'],
-        'tone': _selectedTone,
-      },
+      AppRoutes.reelStudio,
     );
   }
 
@@ -227,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     _buildDashboardTab(userName, trips).animate().fade(),
                     _buildTripTab(trips).animate().fade(),
-                    _buildReelTab().animate().fade(),
+                    const ReelStudioScreen(isTab: true).animate().fade(),
                     const ProfileScreen(),
                   ],
                 ),
@@ -261,17 +304,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 140,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildMemoryThumb('https://images.unsplash.com/photo-1548013146-72479768bada?w=800'),
-              _buildMemoryThumb('https://images.unsplash.com/photo-1493246507139-91e8bef99c02?w=800'),
-              _buildMemoryThumb('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800'),
-            ],
-          ),
-        ),
+        _buildMyReelsSection(trips),
         const SizedBox(height: 32),
         const Text('EXPEDITION TRACKER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
         const SizedBox(height: 12),
@@ -344,58 +377,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildReelTab() {
-    return ListView(
-      padding: EdgeInsets.fromLTRB(20, 10, 20, _contentBottomInset(context)),
-      children: [
-        Text(
-          'CINEMA STUDIO',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: AppTheme.primary),
-        ).animate().fadeIn(),
-        const SizedBox(height: 8),
-        Text(
-          'Create a Masterpiece',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
-        ).animate().fadeIn(delay: 100.ms),
-        const SizedBox(height: 24),
-        const Text('Where are you traveling?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 12),
-        TBInputField(
-          controller: _reelDestinationController,
-          hint: 'e.g. Kyoto, Japan',
-          icon: Icons.location_on_rounded,
-          label: 'Destination',
-        ),
-        const SizedBox(height: 24),
-        const Text('Directing Style', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 100,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              _stylePreset(context, Icons.movie_filter_rounded, 'Cinematic', 'Anamorphic look', _selectedTone == 'adventurous and inspiring', () => setState(() => _selectedTone = 'adventurous and inspiring')),
-              _stylePreset(context, Icons.camera_roll_rounded, 'Vintage', '35mm grain', _selectedTone == 'emotional and nostalgic', () => setState(() => _selectedTone = 'emotional and nostalgic')),
-              _stylePreset(context, Icons.auto_awesome_rounded, 'Vibrant', 'Pop colors', _selectedTone == 'funny and light-hearted', () => setState(() => _selectedTone = 'funny and light-hearted')),
-              _stylePreset(context, Icons.eco_rounded, 'Documentary', 'Natural look', _selectedTone == 'dreamy and peaceful', () => setState(() => _selectedTone = 'dreamy and peaceful')),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        GestureDetector(
-          onTap: _startReelFlow,
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppTheme.borderLight)),
-            child: const Column(children: [Icon(Icons.cloud_upload_rounded, size: 48, color: AppTheme.primary), SizedBox(height: 12), Text('Tap to upload traveler memories', style: TextStyle(fontWeight: FontWeight.w600))]),
-          ),
-        ),
-        const SizedBox(height: 32),
-        PremiumButton(label: 'Generate Studio Reel ✨', onPressed: _startReelFlow),
-      ],
-    );
-  }
-
   Widget _buildUserTab(String name, List<TripModel> trips) {
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 10, 20, _contentBottomInset(context)),
@@ -445,6 +426,129 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover), boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, offset: const Offset(0, 4))]),
       child: const Center(child: Icon(Icons.play_circle_outline_rounded, color: Colors.white, size: 32)),
+    );
+  }
+
+  Widget _buildMyReelsSection(List<TripModel> trips) {
+    final reels = trips.where((t) => t.videoUrl != null && t.videoUrl!.isNotEmpty).toList();
+    if (reels.isEmpty) {
+      return Container(
+        height: 110,
+        decoration: BoxDecoration(
+          color: AppTheme.bgLight,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.borderLight),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.video_library_outlined, color: AppTheme.textHint, size: 28),
+              SizedBox(height: 8),
+              Text('No reels saved yet. Create one in Reel Studio!',
+                  style: TextStyle(color: AppTheme.textHint, fontSize: 12), textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 140,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: reels.length,
+        itemBuilder: (context, index) {
+          final trip = reels[index];
+          return GestureDetector(
+            onLongPress: () => _showDeleteReelDialog(context, trip),
+            onTap: () {
+              if (trip.videoUrl != null) {
+                launchUrl(Uri.parse(trip.videoUrl!), mode: LaunchMode.externalApplication);
+              }
+            },
+            child: Container(
+              width: 110,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: AppTheme.primary.withAlpha(20),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppTheme.primary.withAlpha(80), AppTheme.primary],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Icon(Icons.movie_creation_outlined, color: Colors.white54, size: 40),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0, left: 0, right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent, Colors.black.withAlpha(150)],
+                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: Text(
+                        trip.destination,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const Center(child: Icon(Icons.play_circle_rounded, color: Colors.white, size: 32)),
+                ],
+              ),
+            ).animate().fadeIn(delay: Duration(milliseconds: index * 100)),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showDeleteReelDialog(BuildContext context, TripModel trip) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Manage Reel', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Text('What do you want to do with the reel for "${trip.destination}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('KEEP', style: TextStyle(color: AppTheme.textHint)),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            label: const Text('DELETE'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              context.read<TripProvider>().deleteReel(trip.id);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Reel deleted'), backgroundColor: Colors.redAccent),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 

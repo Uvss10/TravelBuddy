@@ -24,6 +24,7 @@ class TripModel extends Equatable {
   final bool isFavorite;
   final double? latitude;
   final double? longitude;
+  final String? videoUrl;
 
   const TripModel({
     required this.id,
@@ -44,16 +45,45 @@ class TripModel extends Equatable {
     this.isFavorite = false,
     this.latitude,
     this.longitude,
+    this.videoUrl,
   });
 
   /// Create from itinerary API response JSON.
   factory TripModel.fromItineraryJson(Map<String, dynamic> json) {
     final rawItinerary = json['itinerary_ai_output'];
+    final rawBudget = json['hotel_and_budget_estimation'];
 
     String? itineraryOutput;
-    if (rawItinerary is String) {
-      itineraryOutput = rawItinerary;
-    } else if (rawItinerary is Map || rawItinerary is List) {
+    
+    // Merge budget into the raw map
+    if (rawItinerary is Map<String, dynamic> && rawBudget is Map<String, dynamic>) {
+      rawItinerary['budget_breakdown'] = {
+        'accommodation': '₹${rawBudget['hotel']?['total_cost'] ?? 0}',
+        'food': '₹${rawBudget['food']?['total_cost'] ?? 0}',
+        'transport': '₹${rawBudget['transport']?['total_cost'] ?? 0}',
+        'misc': '₹${rawBudget['tickets']?['estimated_total'] ?? 0}',
+        'source': rawBudget['source_attribution'] ?? 'TravelBuddy AI Estimates'
+      };
+      itineraryOutput = jsonEncode(rawItinerary);
+    } else if (rawItinerary is String) {
+      try {
+        final parsed = jsonDecode(rawItinerary);
+        if (parsed is Map<String, dynamic> && rawBudget is Map<String, dynamic>) {
+          parsed['budget_breakdown'] = {
+            'accommodation': '₹${rawBudget['hotel']?['total_cost'] ?? 0}',
+            'food': '₹${rawBudget['food']?['total_cost'] ?? 0}',
+            'transport': '₹${rawBudget['transport']?['total_cost'] ?? 0}',
+            'misc': '₹${rawBudget['tickets']?['estimated_total'] ?? 0}',
+            'source': rawBudget['source_attribution'] ?? 'TravelBuddy AI Estimates'
+          };
+          itineraryOutput = jsonEncode(parsed);
+        } else {
+          itineraryOutput = rawItinerary;
+        }
+      } catch (_) {
+        itineraryOutput = rawItinerary;
+      }
+    } else if (rawItinerary is List) {
       itineraryOutput = jsonEncode(rawItinerary);
     }
 
@@ -89,6 +119,7 @@ class TripModel extends Equatable {
       isFavorite: isFavorite,
       latitude: latitude,
       longitude: longitude,
+      videoUrl: videoUrl,
     );
   }
 
@@ -111,6 +142,7 @@ class TripModel extends Equatable {
     bool? isFavorite,
     double? latitude,
     double? longitude,
+    String? videoUrl,
   }) {
     return TripModel(
       id: id ?? this.id,
@@ -131,6 +163,7 @@ class TripModel extends Equatable {
       isFavorite: isFavorite ?? this.isFavorite,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      videoUrl: videoUrl ?? this.videoUrl,
     );
   }
 
@@ -152,6 +185,7 @@ class TripModel extends Equatable {
     'is_favorite': isFavorite,
     'latitude': latitude,
     'longitude': longitude,
+    'video_url': videoUrl,
   };
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
@@ -173,6 +207,7 @@ class TripModel extends Equatable {
       isFavorite: json['is_favorite'] ?? false,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      videoUrl: json['video_url'],
     );
   }
 
@@ -230,12 +265,16 @@ class ItineraryDay {
 
     // Legacy format fallback:
     // {
-    //   "Day 1": ["..."]
+    //   "Day 1": ["..."],
+    //   "budget_breakdown": {...} // <-- This was causing the crash
     // }
-    return map.entries.map((e) {
-      final activities = (e.value as List).map((a) => a.toString()).toList();
-      return ItineraryDay(label: e.key, activities: activities);
-    }).toList();
+    return map.entries
+        .where((e) => e.value is List) // ONLY take entries that are lists of activities
+        .map((e) {
+          final activities = (e.value as List).map((a) => a.toString()).toList();
+          return ItineraryDay(label: e.key, activities: activities);
+        })
+        .toList();
   }
 }
 

@@ -5,7 +5,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.api import itinerary, image_analysis, story, video, health, discovery, auth, history, reel_studio
+from backend.api import itinerary, image_analysis, story, video, health, discovery, auth, history, reel_studio, admin
 from backend.database import init_db
 
 # ── Initialize Database Schema ──────────────────────────────────────────────
@@ -49,6 +49,7 @@ app.include_router(story.router,           prefix="/story",     tags=["Story"])
 app.include_router(video.router,           prefix="/video",     tags=["Video"])
 app.include_router(reel_studio.router,     prefix="/reel",      tags=["Reel Studio"])
 app.include_router(discovery.router,       prefix="/discovery", tags=["Discovery"])
+app.include_router(admin.router,           prefix="/admin",     tags=["Admin"])
 
 # ── Static files ──────────────────────────────────────────────────────────────
 os.makedirs("data/selected_images",   exist_ok=True)

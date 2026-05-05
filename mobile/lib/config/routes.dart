@@ -63,15 +63,7 @@ class AppRoutes {
       case createTrip:
         return _slideRoute(const CreateTripScreen(), settings_);
       case photoUpload:
-        final args = settings_.arguments as Map<String, dynamic>?;
-        return _slideRoute(
-          PhotoUploadScreen(
-            initialDestination: args?['destination'] as String?,
-            initialSceneTags: (args?['scene_tags'] as List?)?.cast<String>(),
-            initialTone: args?['tone'] as String?,
-          ),
-          settings_,
-        );
+        return _slideRoute(const ReelStudioScreen(), settings_);
       case aiProcessing:
         final args = settings_.arguments as Map<String, dynamic>?;
         return _fadeRoute(

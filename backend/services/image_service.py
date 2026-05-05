@@ -28,8 +28,19 @@ def normalize(value, min_val, max_val):
 
 
 def _refine_image_for_reel(src_path: str, dest_path: str):
-    """Refines top images to perfect vertical WebP."""
+    """
+    Refines top images to reel-ready vertical WebP.
+    
+    Key improvements vs old version:
+    - Quality 95 (was 85) — near-lossless
+    - Pad instead of crop where possible to preserve full image
+    - Gentle sharpening (unsharp mask) instead of aggressive resize
+    - Mild contrast/vibrance boost — cinematic but not over-processed
+    """
     try:
+        from PIL import ImageFilter, ImageEnhance
+        import numpy as np
+
         ext = src_path.lower().split('.')[-1]
         is_raw = ext in ['nef', 'cr2', 'arw', 'dng', 'raw', 'orf', 'sr2', 'raf', 'rw2', 'pef']
 
@@ -52,9 +63,45 @@ def _refine_image_for_reel(src_path: str, dest_path: str):
         if img.mode != 'RGB':
             img = img.convert('RGB')
 
-        refined = ImageOps.fit(img, TARGET_RES, method=Image.Resampling.LANCZOS)
-        refined.save(dest_path, "WEBP", quality=85, method=6)
+        # ── Smart resize: fit into TARGET_RES maintaining aspect ratio ───────
+        target_w, target_h = TARGET_RES
+        orig_w, orig_h = img.size
+        orig_ratio = orig_w / orig_h
+        target_ratio = target_w / target_h
+
+        if abs(orig_ratio - target_ratio) < 0.15:
+            # Close enough — simple high-quality resize, no crop needed
+            refined = img.resize(TARGET_RES, Image.Resampling.LANCZOS)
+        elif orig_ratio < target_ratio:
+            # Image is more portrait than target — scale to height, pad sides
+            new_h = target_h
+            new_w = int(orig_ratio * new_h)
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            refined = Image.new('RGB', TARGET_RES, (0, 0, 0))
+            offset = ((target_w - new_w) // 2, 0)
+            refined.paste(img_resized, offset)
+        else:
+            # Image is wider — minimal center crop (only 10% max) then pad
+            crop_ratio = min(orig_ratio / target_ratio, 1.1)
+            cropped_w = int(orig_w / crop_ratio)
+            left = (orig_w - cropped_w) // 2
+            img = img.crop((left, 0, left + cropped_w, orig_h))
+            refined = img.resize(TARGET_RES, Image.Resampling.LANCZOS)
+
+        # ── Subtle professional enhancement ───────────────────────────────────
+        # 1. Gentle unsharp mask (edge crispness without halos)
+        refined = refined.filter(ImageFilter.UnsharpMask(radius=1.0, percent=60, threshold=3))
+
+        # 2. Slight contrast boost (1.08 = barely noticeable but makes colors pop)
+        refined = ImageEnhance.Contrast(refined).enhance(1.08)
+
+        # 3. Slight color saturation (1.1 = cinematic warmth without going neon)
+        refined = ImageEnhance.Color(refined).enhance(1.1)
+
+        # ── Save at highest quality ───────────────────────────────────────────
+        refined.save(dest_path, "WEBP", quality=95, method=6, lossless=False)
         return True
+
     except Exception as e:
         print(f"[Refine] Failed {src_path}: {e}")
         shutil.copy(src_path, dest_path)

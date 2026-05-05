@@ -4,7 +4,8 @@ import json
 
 router = APIRouter()
 
-from rag.retriever import retrieve_top_chunks
+from backend.rag.retriever import retrieve_top_chunks
+from backend.rag.image_retriever import enrich_spots_with_images
 
 @router.get("/nearby")
 def get_nearby_discovery(location: str = "Your World", lat: float = 0.0, lon: float = 0.0):
@@ -32,7 +33,6 @@ def get_nearby_discovery(location: str = "Your World", lat: float = 0.0, lon: fl
           "category": "Photography | Heritage | Nature",
           "description": "Short catchy description",
           "photography_tip": "Specific pro tip",
-          "image_url": "https://images.unsplash.com/photo-<id>?w=800",
           "distance_km": [Float],
           "importance": "Must-Visit | Recommended | Hidden Gem",
           "recommendation": "Expert insight"
@@ -45,7 +45,15 @@ def get_nearby_discovery(location: str = "Your World", lat: float = 0.0, lon: fl
         raw_output = utils.call_llm(prompt)
         start = raw_output.find("{")
         end   = raw_output.rfind("}") + 1
-        return json.loads(raw_output[start:end])
+        data = json.loads(raw_output[start:end])
+        
+        # Enrich with REAL images from Wikimedia/Unsplash
+        if "spots" in data:
+            data["spots"] = enrich_spots_with_images(data["spots"])
+            
+        return data
     except Exception:
         # Static fallback if RAG and LLM both struggle
-        return {"spots": [{"name": "Local Landmark", "category": "Heritage", "description": "Beautiful site.", "photography_tip": "Morning light.", "image_url": "https://images.unsplash.com/photo-1548013146-72479768bada?w=800", "distance_km": 0.5, "importance": "Recommended", "recommendation": "Truly iconic."}]}
+        fallback = {"spots": [{"name": "Mehrangarh Fort", "category": "Heritage", "description": "Majestic fort of Jodhpur.", "photography_tip": "Shoot from blue city roofs.", "distance_km": 0.5, "importance": "Must-Visit", "recommendation": "Iconic history."}]}
+        fallback["spots"] = enrich_spots_with_images(fallback["spots"])
+        return fallback

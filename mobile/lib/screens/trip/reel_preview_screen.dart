@@ -7,6 +7,7 @@ import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 
 import '../../services/video_cache_manager.dart';
+import '../../services/config_service.dart';
 
 /// Reel preview screen — video player with zero-buffering cache.
 class ReelPreviewScreen extends StatefulWidget {
@@ -42,6 +43,11 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
         });
       }
       return;
+    }
+
+    // Fix: If URL is relative (e.g. /data/...), prepend the backend URL
+    if (_activeVideoUrl!.startsWith('/')) {
+      _activeVideoUrl = '${ConfigService().backendUrl}$_activeVideoUrl';
     }
 
     try {

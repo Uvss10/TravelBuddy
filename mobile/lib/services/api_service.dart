@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../config/api_config.dart';
 import '../models/trip_model.dart';
+import 'config_service.dart';
 
 /// Result wrapper — avoids throwing exceptions through the UI layer.
 class ApiResult<T> {
@@ -19,41 +20,52 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  late final Dio _dio;
+  late Dio _dio;
 
   ApiService._internal() {
-    _dio = Dio(
+    _dio = _buildDio(ConfigService().backendUrl);
+  }
+
+  Dio _buildDio(String baseUrl) {
+    final dio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
+        baseUrl: baseUrl,
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
         headers: {
           'Content-Type': 'application/json',
-          'bypass-tunnel-reminders': 'true', // For Localtunnel/Ngrok bypass
+          'bypass-tunnel-reminders': 'true',
         },
       ),
     );
 
     // ── Request / Response logger (dev only) ──
-    _dio.interceptors.add(LogInterceptor(
+    dio.interceptors.add(LogInterceptor(
       requestBody: true,
       responseBody: true,
       error: true,
     ));
 
     // ── Retry interceptor (1 automatic retry on connection error) ──
-    _dio.interceptors.add(InterceptorsWrapper(
+    dio.interceptors.add(InterceptorsWrapper(
       onError: (DioException e, handler) async {
         if (_isRetryable(e) && e.requestOptions.extra['retried'] != true) {
           e.requestOptions.extra['retried'] = true;
           try {
-            final response = await _dio.fetch(e.requestOptions);
+            final response = await dio.fetch(e.requestOptions);
             return handler.resolve(response);
           } catch (_) {}
         }
         handler.next(e);
       },
     ));
+    return dio;
+  }
+
+  /// Called by main() after ConfigService loads the fresh URL from Supabase.
+  /// Rebuilds Dio with the new baseUrl — no APK rebuild needed.
+  void reinitialize() {
+    _dio = _buildDio(ConfigService().backendUrl);
   }
 
   bool _isRetryable(DioException e) =>
@@ -412,5 +424,14 @@ class ApiService {
       final list = (resp.data as List).map((t) => TripModel.fromJson(t)).toList();
       return ApiResult.success(list);
     } on DioException catch (e) { return ApiResult.failure(_mapError(e)); }
+  }
+
+  Future<ApiResult<void>> deleteTrip(int tripId) async {
+    try {
+      await _dio.delete('${ApiConfig.historyList}/$tripId');
+      return const ApiResult.success(null);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
   }
 }

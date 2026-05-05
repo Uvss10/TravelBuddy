@@ -7,11 +7,12 @@ class ApiConfig {
   /// IMPORTANT: Update this IP whenever the laptop's Wi-Fi IP changes.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://travelbuddy-ai-engine.onrender.com',
+    defaultValue: 'http://10.249.251.50:8000',
   );
 
   // ─── Endpoints ──────────────────────────────────────────────────────────────
   static const String health         = '/health';
+  static const String versionCheck   = '/version';
   static const String itineraryGen   = '/itinerary/generate';
   static const String imageUpload    = '/images/upload';
   static const String storyGenerate  = '/story/generate';

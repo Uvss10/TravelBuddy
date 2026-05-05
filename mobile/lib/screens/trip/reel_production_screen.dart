@@ -5,8 +5,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/reel_draft_provider.dart';
 import '../../providers/trip_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/config_service.dart';
 import '../../theme/app_theme.dart';
 import '../../config/routes.dart';
+import '../../models/trip_model.dart';
+
 
 /// STAGE 5 — Production
 /// Summary of all user choices, a single big "Produce" button, 
@@ -65,10 +68,12 @@ class _ReelProductionScreenState extends State<ReelProductionScreen>
       return;
     }
 
-    _startPolling(provider);
+    _startPolling(provider, destination);
+
   }
 
-  void _startPolling(ReelDraftProvider provider) {
+  void _startPolling(ReelDraftProvider provider, String destination) {
+
     _pollTimer?.cancel();
     _pollFailures = 0;
 
@@ -119,6 +124,26 @@ class _ReelProductionScreenState extends State<ReelProductionScreen>
         if (mounted) {
           provider.updateRenderProgress(1.0, '✅ Your reel is ready!', videoUrl);
           setState(() => _renderLog.add('✅ Reel complete!'));
+
+          // Save to history
+          final tripProvider = context.read<TripProvider>();
+          final firstPhoto = provider.curatedOrder.isNotEmpty ? provider.curatedOrder.first.path : '';
+          final thumbUrl = firstPhoto.isNotEmpty 
+              ? '${ConfigService().backendUrl}${firstPhoto.startsWith('/') ? '' : '/'}$firstPhoto'
+              : '';
+
+          final trip = TripModel(
+            id: 'reel_${DateTime.now().millisecondsSinceEpoch}',
+            destination: destination,
+            days: 0,
+            budget: 'Cinematic',
+            interests: const [],
+            createdAt: DateTime.now(),
+            videoUrl: videoUrl,
+            storyTitle: 'My Cinematic Reel',
+            selectedImagePaths: thumbUrl.isNotEmpty ? [thumbUrl] : const [],
+          );
+          tripProvider.addTripToHistory(trip);
 
           // Navigate to preview
           await Future.delayed(const Duration(seconds: 1));

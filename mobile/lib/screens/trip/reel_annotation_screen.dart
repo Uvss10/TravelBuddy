@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/reel_draft_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../config/routes.dart';
+import '../../services/config_service.dart';
 
 /// STAGE 4 — Annotation
 /// User edits captions per slot on a scrollable timeline.
@@ -207,13 +208,29 @@ class _SlotAnnotationCardState extends State<_SlotAnnotationCard> {
                   Container(
                     width: 60,
                     height: 60,
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.06),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _sectionColor.withOpacity(0.3)),
                     ),
-                    child: Center(
-                      child: Text(_sectionEmoji, style: const TextStyle(fontSize: 22)),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          '${ConfigService().backendUrl}${widget.slot.photoPath.startsWith('/') ? '' : '/'}${widget.slot.photoPath}',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(_sectionEmoji, style: const TextStyle(fontSize: 22)),
+                          ),
+                        ),
+                        // Small emoji overlay
+                        Positioned(
+                          top: 4,
+                          left: 4,
+                          child: Text(_sectionEmoji, style: const TextStyle(fontSize: 14)),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),

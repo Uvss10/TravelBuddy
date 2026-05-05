@@ -373,6 +373,19 @@ def reel_render(req: RenderRequest):
     if not image_paths:
         raise HTTPException(status_code=422, detail="No valid image files found for render.")
 
+    precomputed_metas = []
+    draft_meta = draft.get("photo_meta", {})
+    for path in image_paths:
+        m = draft_meta.get(path, {})
+        from backend.services.media_intelligence import PhotoMeta
+        precomputed_metas.append(PhotoMeta(
+            path=path,
+            shot_type=m.get("shot_type", "wide"),
+            orientation=m.get("orientation", "landscape"),
+            overall_quality=m.get("overall_quality", 0.5),
+            # provide defaults for others if needed
+        ))
+
     # Start the background render job
     result = generate_cinematic_video(
         image_paths=image_paths,
@@ -382,6 +395,7 @@ def reel_render(req: RenderRequest):
         audio_path=req.audio_path,
         lrc_content=req.lrc_content,
         duration_s=req.duration_s,
+        precomputed_metas=precomputed_metas,
     )
 
     # Update draft

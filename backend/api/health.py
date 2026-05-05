@@ -10,6 +10,45 @@ router = APIRouter()
 def health_check():
     return {"status": "ok"}
 
+@router.get("/version")
+def get_version():
+    """
+    Over-The-Air (OTA) Update Endpoint.
+
+    HOW TO PUSH AN UPDATE TO ALL USERS:
+    ─────────────────────────────────────
+    1.  Build new APK:  flutter build apk --release  (in mobile/)
+    2.  Upload APK to Google Drive → Share → "Anyone with the link" → Copy Link ID
+        Link ID is the part after /d/ and before /view in the share URL.
+        e.g. https://drive.google.com/file/d/THIS_PART_HERE/view
+    3.  Paste the ID into DRIVE_FILE_ID below.
+    4.  Bump LATEST_VERSION (e.g. "2.0.0" → "2.1.0").
+    5.  Save this file. Every user gets the update dialog on next app launch.
+    ─────────────────────────────────────
+    """
+
+    # ── EDIT ONLY THESE TWO LINES TO PUSH AN UPDATE ──────────────────────────
+    LATEST_VERSION = "2.0.0"
+    DRIVE_FILE_ID  = "YOUR_GOOGLE_DRIVE_FILE_ID_HERE"  # Paste your Drive file ID
+    # ─────────────────────────────────────────────────────────────────────────
+
+    RELEASE_NOTES  = (
+        "✨ Dynamic IP: App auto-discovers backend — no more rebuild on IP change.\n"
+        "🔒 Stay Logged In: Session is now persistent across restarts.\n"
+        "🚀 OTA Updates: You are now receiving over-the-air updates!"
+    )
+    IS_MANDATORY   = True   # True = user MUST update before using the app
+
+    # Constructs a direct-download URL (bypasses Google Drive preview page)
+    apk_url = f"https://drive.google.com/uc?export=download&id={DRIVE_FILE_ID}"
+
+    return {
+        "latest_version": LATEST_VERSION,
+        "is_mandatory":   IS_MANDATORY,
+        "release_notes":  RELEASE_NOTES,
+        "apk_url":        apk_url,
+    }
+
 
 @router.post("/llm/toggle_mode")
 def toggle_llm_mode():

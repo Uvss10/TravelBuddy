@@ -63,6 +63,26 @@ def retrieve(destination: str, timeout: int = 12) -> dict:
     }
 
 
+def retrieve_top_chunks(query: str, n_results: int = 5) -> list:
+    """
+    Compatibility wrapper for discovery service. 
+    Retrieves data for the location mentioned in the query and returns raw text chunks.
+    """
+    # Extract destination from query (naive)
+    # query is usually "Photography heritage and nature spots in Udaipur"
+    dest = query.split(" in ")[-1] if " in " in query else query
+    data = retrieve(dest)
+    if not data or not data.get("raw_text"):
+        return []
+    
+    # Return sections as chunks
+    chunks = []
+    for name, content in data.get("sections", {}).items():
+        chunks.append(f"[{name.upper()}]\n{content}")
+    
+    return chunks[:n_results]
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # WIKIVOYAGE
 # ─────────────────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/reel_draft_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../config/routes.dart';
+import '../../services/config_service.dart';
 
 /// STAGE 2 — Storyboard
 /// Drag-and-drop reordering, theme picker, energy/duration sliders.
@@ -403,7 +404,27 @@ class _StripPhotoCard extends StatelessWidget {
               color: Colors.white10,
               width: double.infinity,
               height: double.infinity,
-              child: const Icon(Icons.image_outlined, color: Colors.white24, size: 28),
+              child: Image.network(
+                '${ConfigService().backendUrl}${photo.path.startsWith('/') ? '' : '/'}${photo.path}',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.white10, size: 24),
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return Center(
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        value: progress.expectedTotalBytes != null
+                            ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                            : null,
+                        strokeWidth: 2,
+                        valueColor: const AlwaysStoppedAnimation(Colors.white10),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           Positioned(

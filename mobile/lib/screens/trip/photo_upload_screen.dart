@@ -198,12 +198,7 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
     
     Navigator.pushNamed(
       context, 
-      AppRoutes.aiProcessing,
-      arguments: {
-        'destination': destination,
-        'scene_tags': widget.initialSceneTags ?? [],
-        'tone': _selectedStyle,
-      }
+      AppRoutes.reelStudio,
     );
   }
 

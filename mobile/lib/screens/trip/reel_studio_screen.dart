@@ -15,7 +15,7 @@ import '../../config/routes.dart';
 
 // ── Stage indicator colours ───────────────────────────────────────────────────
 const _kStageColors = [
-  Color(0xFF6366F1), // Curation   - Indigo
+  Color(0xFF2563EB), // Curation   - Indigo
   Color(0xFF0EA5E9), // Storyboard - Sky
   Color(0xFFF59E0B), // Atmosphere - Amber
   Color(0xFF10B981), // Annotation - Emerald
@@ -41,7 +41,8 @@ const _kStageIcons = [
 /// Master entry point for the Reel Studio multi-stage pipeline.
 /// Shows a cinematic dark hub with stage steps and launches the first stage.
 class ReelStudioScreen extends StatefulWidget {
-  const ReelStudioScreen({super.key});
+  final bool isTab;
+  const ReelStudioScreen({super.key, this.isTab = false});
 
   @override
   State<ReelStudioScreen> createState() => _ReelStudioScreenState();
@@ -106,7 +107,7 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
     final activeIdx = _stageIndex(provider.stage);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A18),
+      backgroundColor: const Color(0xFF0F172A),
       body: Stack(
         children: [
           // Animated gradient background
@@ -118,8 +119,8 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
                   center: Alignment(_bgCtrl.value * 0.4 - 0.2, -0.5),
                   radius: 1.4,
                   colors: const [
-                    Color(0xFF1E1B4B),
-                    Color(0xFF0A0A18),
+                    Color(0xFF1E40AF),
+                    Color(0xFF0F172A),
                   ],
                 ),
               ),
@@ -134,11 +135,12 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                   child: Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const SizedBox(width: 8),
+                      if (!widget.isTab)
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      if (!widget.isTab) const SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -263,7 +265,7 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
                         // Description cards
                         _StepInfoCard(
                           icon: Icons.auto_awesome_rounded,
-                          color: const Color(0xFF6366F1),
+                          color: const Color(0xFF2563EB),
                           title: 'Smart AI Curation',
                           desc: 'AI analyzes 100 photos in seconds, scores quality, faces & story potential.',
                         ).animate(delay: 200.ms).fadeIn().slideY(begin: 0.2),
@@ -291,7 +293,7 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
                             provider.stage != ReelStudioStage.analyzing)
                           _ResumeButton(stage: provider.stage),
 
-                        const SizedBox(height: 24),
+                        SizedBox(height: widget.isTab ? 116 : 24),
                       ],
                     ),
                   ),
@@ -328,7 +330,7 @@ class _FilmReelAnimation extends StatelessWidget {
             height: 180 + pulseCtrl.value * 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.15 + pulseCtrl.value * 0.1), width: 2),
+              border: Border.all(color: const Color(0xFF2563EB).withOpacity(0.15 + pulseCtrl.value * 0.1), width: 2),
             ),
           ),
           // Middle ring
@@ -339,8 +341,8 @@ class _FilmReelAnimation extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF6366F1).withOpacity(0.2),
-                  const Color(0xFF6366F1).withOpacity(0.05),
+                  const Color(0xFF2563EB).withOpacity(0.2),
+                  const Color(0xFF2563EB).withOpacity(0.05),
                 ],
               ),
             ),
@@ -412,11 +414,11 @@ class _StartButton extends StatelessWidget {
         height: 60,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+            colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
           ),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
-            BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8)),
+            BoxShadow(color: const Color(0xFF2563EB).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8)),
           ],
         ),
         child: const Row(
@@ -516,7 +518,7 @@ class _AnalyzingOverlay extends StatelessWidget {
               height: 64,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                valueColor: AlwaysStoppedAnimation(Color(0xFF2563EB)),
               ),
             ),
             const SizedBox(height: 24),

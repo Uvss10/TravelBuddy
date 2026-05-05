@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
@@ -37,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final user = auth.user;
     final name = user?.name.split(' ').first ?? 'Traveller';
     final totalDays = trips.fold<int>(0, (s, t) => s + t.days);
-    final reels = trips.where((t) => t.storyTitle != null).length;
+    final reelsCount = trips.where((t) => t.videoUrl != null).length;
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
@@ -53,9 +54,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               background: _PassportHeader(
                 name: name,
                 email: user?.email ?? '',
-                trips: trips.length,
+                trips: trips.where((t) => t.itineraryOutput != null).length,
                 totalDays: totalDays,
-                reels: reels,
+                reels: reelsCount,
               ),
             ),
             bottom: TabBar(
@@ -77,9 +78,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         body: TabBarView(
           controller: _tabs,
           children: [
-            _PlansTab(trips: trips),
-            _CalendarTab(trips: trips, selectedMonth: _selectedMonth, onMonthChanged: (m) => setState(() => _selectedMonth = m)),
-            _ReelsTab(trips: trips),
+            _PlansTab(trips: trips.where((t) => t.itineraryOutput != null).toList()),
+            _CalendarTab(trips: trips.where((t) => t.itineraryOutput != null).toList(), selectedMonth: _selectedMonth, onMonthChanged: (m) => setState(() => _selectedMonth = m)),
+            _ReelsTab(trips: trips.where((t) => t.videoUrl != null).toList()),
             _TrackerTab(trips: trips, totalDays: totalDays),
           ],
         ),
@@ -499,16 +500,52 @@ class _ReelsTab extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
-          itemCount: _sampleThumbs.length,
-          itemBuilder: (_, i) => _ReelThumbnail(url: _sampleThumbs[i], label: trips.isNotEmpty ? trips[i % trips.length].destination : 'Reel ${i + 1}')
-              .animate().fadeIn(delay: (i * 60).ms).scale(begin: const Offset(0.95, 0.95)),
-        ),
+        if (trips.isEmpty)
+          const _EmptySection(icon: Icons.movie_filter_rounded, message: 'No reels yet.\nCreate one from your plans or gallery!')
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.75),
+            itemCount: trips.length,
+            itemBuilder: (_, i) {
+              final trip = trips[i];
+              // Use first image if available, else placeholder
+              final thumbUrl = (trip.selectedImagePaths.isNotEmpty) 
+                  ? trip.selectedImagePaths.first 
+                  : 'https://images.unsplash.com/photo-1548013146-72479768bada?w=400';
+              
+              return GestureDetector(
+                onTap: () => Navigator.pushNamed(context, AppRoutes.reelPreview, arguments: trip.videoUrl),
+                onLongPress: () => _showDeleteDialog(context, trip),
+                child: _ReelThumbnail(url: thumbUrl, label: trip.destination)
+                    .animate().fadeIn(delay: (i * 60).ms).scale(begin: const Offset(0.95, 0.95)),
+              );
+            },
+          ),
       ],
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, TripModel trip) {
+    final s = context.read<LanguageProvider>().strings;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.deleteReel),
+        content: Text('${s.deleteReel} "${trip.destination}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s.later)),
+          TextButton(
+            onPressed: () {
+              context.read<TripProvider>().removeTrip(trip.id);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.success)));
+            },
+            child: Text(s.deleteReel, style: const TextStyle(color: AppTheme.error)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -638,10 +675,10 @@ class _TrackerTab extends StatelessWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 1.4,
           children: [
-            _StatTile(icon: Icons.map_rounded, label: 'Trips Planned', value: '${trips.length}', color: AppTheme.primary),
+            _StatTile(icon: Icons.map_rounded, label: 'Plans Saved', value: '${trips.where((t) => t.itineraryOutput != null).length}', color: AppTheme.primary),
             _StatTile(icon: Icons.today_rounded, label: 'Travel Days', value: '$totalDays', color: AppTheme.accent),
-            _StatTile(icon: Icons.movie_rounded, label: 'Reels Created', value: '${trips.where((t) => t.storyTitle != null).length}', color: const Color(0xFF7C3AED)),
-            _StatTile(icon: Icons.photo_rounded, label: 'Memories', value: '${trips.length * 14}', color: const Color(0xFF059669)),
+            _StatTile(icon: Icons.movie_rounded, label: 'Reels Created', value: '${trips.where((t) => t.videoUrl != null).length}', color: const Color(0xFF7C3AED)),
+            _StatTile(icon: Icons.photo_rounded, label: 'Memories', value: '${trips.length * 12}', color: const Color(0xFF059669)),
           ],
         ).animate().fadeIn(delay: 100.ms),
         const SizedBox(height: 28),
