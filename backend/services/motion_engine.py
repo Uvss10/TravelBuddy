@@ -77,6 +77,7 @@ class MotionKeyframe:
     pan_x_end: float         # normalised X pan at t=1
     pan_y_start: float       # normalised Y pan at t=0
     pan_y_end: float         # normalised Y pan at t=1
+    rotation: float          # rotation angle at t=1 (degrees)
     easing: str              # easing function name
 
 
@@ -109,6 +110,11 @@ def build_keyframe(
     pan_x_mag = profile.pan_x * energy_mult
     pan_y_mag = profile.pan_y * energy_mult
 
+    # New: Add rotational drift for high-quality "after effects" feel
+    rotation = 0.0
+    if index % 3 == 0:
+        rotation = 1.5 * energy_mult * sign_x # subtle 1.5 degree tilt
+    
     return MotionKeyframe(
         zoom_start   = round(zoom_start, 4),
         zoom_end     = round(zoom_end, 4),
@@ -116,6 +122,7 @@ def build_keyframe(
         pan_x_end    = round(sign_x * pan_x_mag, 4),
         pan_y_start  = 0.0,
         pan_y_end    = round(sign_y * pan_y_mag, 4),
+        rotation     = round(rotation, 2),
         easing       = profile.easing,
     )
 
@@ -148,6 +155,7 @@ def get_transform(
     zoom  = kf.zoom_start + (kf.zoom_end - kf.zoom_start) * te
     pan_x = kf.pan_x_start + (kf.pan_x_end - kf.pan_x_start) * te
     pan_y = kf.pan_y_start + (kf.pan_y_end - kf.pan_y_start) * te
+    rotation = kf.rotation * te
 
     h, w = frame.shape[:2]
 
@@ -160,7 +168,7 @@ def get_transform(
     tx = cx + pan_x * out_w
     ty = cy + pan_y * out_h
 
-    M = cv2.getRotationMatrix2D((cx, cy), 0.0, zoom)
+    M = cv2.getRotationMatrix2D((cx, cy), rotation, zoom)
     # Apply pan translation on top of the rotation/zoom matrix
     M[0, 2] += (tx - cx)
     M[1, 2] += (ty - cy)
@@ -192,13 +200,13 @@ def _cover_crop(frame: np.ndarray, out_w: int, out_h: int) -> np.ndarray:
         # Image wider — scale by height
         scale_h = out_h / h
         new_w   = int(w * scale_h)
-        resized = cv2.resize(frame, (new_w, out_h), interpolation=cv2.INTER_LINEAR)
+        resized = cv2.resize(frame, (new_w, out_h), interpolation=cv2.INTER_AREA)
         x0      = (new_w - out_w) // 2
         return resized[:, x0:x0 + out_w]
     else:
         # Image taller — scale by width
         scale_w = out_w / w
         new_h   = int(h * scale_w)
-        resized = cv2.resize(frame, (out_w, new_h), interpolation=cv2.INTER_LINEAR)
+        resized = cv2.resize(frame, (out_w, new_h), interpolation=cv2.INTER_AREA)
         y0      = (new_h - out_h) // 2
         return resized[y0:y0 + out_h, :]

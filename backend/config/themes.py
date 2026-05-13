@@ -95,7 +95,7 @@ THEMES: dict[str, Theme] = {
             pan_x=0.03, pan_y=0.01,
             easing="ease_inout",
         ),
-        transition_pool=["cross_dissolve", "dip_black", "zoom_in"],
+        transition_pool=["cross_dissolve", "dip_black", "zoom_in", "flash_white", "zoom_blur"],
         color_grade=ColorGrade(
             brightness=1.05, contrast=1.10,
             saturation=0.90,
@@ -121,7 +121,7 @@ THEMES: dict[str, Theme] = {
             pan_x=0.05, pan_y=0.03,
             easing="ease_in",
         ),
-        transition_pool=["whip_left", "whip_right", "zoom_in", "directional_blur"],
+        transition_pool=["whip_left", "whip_right", "glitch", "flash_white", "zoom_in", "zoom_blur"],
         color_grade=ColorGrade(
             brightness=1.08, contrast=1.20,
             saturation=1.35,
@@ -199,7 +199,7 @@ THEMES: dict[str, Theme] = {
             pan_x=0.05, pan_y=0.02,
             easing="spring",
         ),
-        transition_pool=["directional_blur", "zoom_out", "whip_right", "cross_dissolve"],
+        transition_pool=["glitch", "directional_blur", "zoom_out", "whip_right", "zoom_blur", "cross_dissolve"],
         color_grade=ColorGrade(
             brightness=1.03, contrast=1.30,
             saturation=1.20,

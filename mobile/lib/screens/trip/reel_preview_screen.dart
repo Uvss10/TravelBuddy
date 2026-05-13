@@ -142,7 +142,7 @@ class _ReelPreviewScreenState extends State<ReelPreviewScreen> {
               child: const Text('Open External', style: TextStyle(color: Colors.white)),
             ),
           TextButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.downloadShare),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.downloadShare, arguments: _activeVideoUrl),
             child: const Text('Share →', style: TextStyle(color: AppTheme.accent)),
           ),
         ],

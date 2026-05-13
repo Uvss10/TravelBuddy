@@ -66,7 +66,7 @@ async def upload_images(files: List[UploadFile] = File(...)):
             print(f"[Upload] Error saving {safe_name}: {e}")
             continue  # skip files that fail to save
 
-        saved_files.append(file_path)
+        saved_files.append(file_path.replace("\\", "/"))
 
     if not saved_files:
         raise HTTPException(status_code=400, detail="No valid image files were uploaded.")
@@ -76,6 +76,7 @@ async def upload_images(files: List[UploadFile] = File(...)):
     return {
         "uploaded_count"  : len(saved_files),
         "analysis_results": results,
+        "image_paths"     : saved_files,
     }
 
 

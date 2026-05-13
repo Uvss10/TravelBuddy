@@ -226,10 +226,7 @@ class ReelDraftProvider extends ChangeNotifier {
       return;
     }
 
-    final analysis = uploadResult.data?['analysis_results'];
-    final serverPaths = (analysis is Map<String, dynamic>)
-        ? List<String>.from(analysis['selected_images'] ?? [])
-        : <String>[];
+    final serverPaths = List<String>.from(uploadResult.data?['image_paths'] ?? []);
 
     if (serverPaths.isEmpty) {
       _setError('No valid images returned from server.');

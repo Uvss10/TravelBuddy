@@ -62,12 +62,17 @@ def rag_generate_itinerary(
 
 def rag_edit_itinerary(existing_plan, modification, interests):
     """
-    Partial RAG for editing. For now, it performs a simple LLM call.
+    Partial RAG for editing. 
     """
     prompt = (
-        f"Update the following travel plan based on this request: {modification}\n\n"
-        f"Original Plan:\n{existing_plan}\n\n"
-        f"Interests: {', '.join(interests)}\n"
-        f"Return the updated plan in the same JSON format."
+        f"You are a travel planning expert. Update the travel plan provided below based on the user's specific modification request.\n\n"
+        f"MODIFICATION REQUEST: {modification}\n\n"
+        f"ORIGINAL PLAN (JSON):\n{existing_plan}\n\n"
+        f"USER INTERESTS: {', '.join(interests)}\n\n"
+        f"STRICT INSTRUCTIONS:\n"
+        f"1. Modify ONLY the parts requested. Keep the rest of the plan intact.\n"
+        f"2. Ensure the output is a valid JSON object with the EXACT SAME structure as the original plan.\n"
+        f"3. Do NOT include markdown code blocks, explanations, or any text other than the JSON.\n"
+        f"4. If adding new activities, ensure they are specific landmarks or eateries in the same city."
     )
     return call_llm(prompt)

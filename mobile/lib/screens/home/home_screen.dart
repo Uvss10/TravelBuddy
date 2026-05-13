@@ -379,6 +379,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildUserTab(String name, List<TripModel> trips) {
+    final s = context.read<LanguageProvider>().strings;
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 10, 20, _contentBottomInset(context)),
       children: [
@@ -407,15 +408,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
         const SizedBox(height: 32),
-        const Text('ACHIEVEMENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
+        Text(s.achievements, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
         const SizedBox(height: 12),
         Row(children: [_Badge(icon: Icons.auto_awesome_rounded, label: 'First Reel', active: true), const SizedBox(width: 12), _Badge(icon: Icons.landscape_rounded, label: 'Alp Scout', active: true), const SizedBox(width: 12), _Badge(icon: Icons.forest_rounded, label: 'Rainforest', active: false)]),
         const SizedBox(height: 32),
-        const Text('MY EXPEDITION RECORDS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
+        Text(s.myExpeditions, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
         const SizedBox(height: 12),
         if (trips.isEmpty) const Center(child: Text('Start an expedition to record history.')) else ...trips.map((t) => _CompactRecordCard(trip: t)),
         const SizedBox(height: 24),
-        PremiumButton(label: 'Edit Explorer Profile', onPressed: () {}),
+        PremiumButton(label: s.editProfile, onPressed: () {}),
         const SizedBox(height: 48),
       ],
     );
@@ -602,7 +603,10 @@ class _PassportTripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.itinerary, arguments: trip),
+      onTap: () {
+        context.read<TripProvider>().setCurrentTrip(trip);
+        Navigator.pushNamed(context, AppRoutes.itinerary, arguments: trip);
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(24),

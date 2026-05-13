@@ -7,7 +7,7 @@ class ApiConfig {
   /// IMPORTANT: Update this IP whenever the laptop's Wi-Fi IP changes.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.249.251.50:8000',
+    defaultValue: 'http://10.28.227.234:8001',
   );
 
   // ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ class ApiConfig {
   static const String versionCheck   = '/version';
   static const String itineraryGen   = '/itinerary/generate';
   static const String itineraryEdit  = '/itinerary/edit';
+  static const String itineraryDocx  = '/itinerary/export/docx';
   static const String imageUpload    = '/images/upload';
   static const String storyGenerate  = '/story/generate';
   static const String videoGenerate  = '/video/generate';

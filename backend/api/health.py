@@ -28,8 +28,8 @@ def get_version():
     """
 
     # ── EDIT ONLY THESE TWO LINES TO PUSH AN UPDATE ──────────────────────────
-    LATEST_VERSION = 16
-    DRIVE_FILE_ID  = "1UEJ0c1mYZ_ZYnDHrwByXYTAViIEiRG0R"
+    LATEST_VERSION = 20
+    DRIVE_FILE_ID  = "12ZdqlSz0fA2035-4SJVdutYWWIsCpLX9"
     # ─────────────────────────────────────────────────────────────────────────
 
     RELEASE_NOTES  = (

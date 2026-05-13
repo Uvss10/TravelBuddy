@@ -7,11 +7,13 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/trip_model.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/language_provider.dart';
 
 
 /// Rich itinerary view with summary metrics + day timeline cards.
@@ -29,6 +31,11 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   bool _isTweaking = false;
   int _selectedDayIndex = 0;
   String? _distanceKm;
+
+  // Structured Tweak state
+  int? _tweakDay;
+  String _tweakTime = 'Morning';
+  final List<String> _timeSlots = ['Morning', 'Afternoon', 'Evening', 'Night', 'Whole Day'];
 
   @override
   void initState() {
@@ -89,36 +96,91 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   _ItineraryViewData _buildViewData() {
-    final raw = widget.trip?.itineraryOutput;
+    final trip = context.watch<TripProvider>().currentTrip ?? widget.trip;
+    final raw = trip?.itineraryOutput;
     if (raw == null || raw.isEmpty) {
       return const _ItineraryViewData(days: [], payload: null);
     }
 
-    String sanitize(String input) {
-      final trimmed = input.replaceAll(RegExp(r'```json|```'), '').trim();
-      final start = trimmed.indexOf('{');
-      final end = trimmed.lastIndexOf('}');
+    try {
+      dynamic payload;
+      String sanitized = raw;
+      
+      sanitized = sanitized.replaceAll(RegExp(r'```json|```'), '').trim();
+      final start = sanitized.indexOf('{');
+      final end = sanitized.lastIndexOf('}');
       if (start >= 0 && end >= start) {
-        return trimmed.substring(start, end + 1);
+        sanitized = sanitized.substring(start, end + 1);
       }
-      return trimmed;
+      
+      payload = jsonDecode(sanitized);
+      
+      if (payload is String) {
+        payload = jsonDecode(payload);
+      }
+      
+      if (payload is Map<String, dynamic>) {
+        final days = ItineraryDay.parseFromMap(payload);
+        return _ItineraryViewData(days: days, payload: payload);
+      }
+    } catch (_) {}
+    return const _ItineraryViewData(days: [], payload: null);
+  }
+
+  void _deleteActivities(int dayIdx, List<int> indices, Map<String, dynamic>? payload) {
+    if (payload == null) return;
+    final newPayload = Map<String, dynamic>.from(payload);
+    
+    final rawDays = newPayload['days'];
+    if (rawDays is List) {
+       final dayMap = rawDays[dayIdx];
+       if (dayMap is Map<String, dynamic> && dayMap['activities'] is List) {
+           final activities = List.from(dayMap['activities']);
+           indices.sort((a, b) => b.compareTo(a));
+           for (final i in indices) {
+              if (i >= 0 && i < activities.length) {
+                  activities.removeAt(i);
+              }
+           }
+           dayMap['activities'] = activities;
+       }
+    } else {
+       final keys = newPayload.keys.where((k) => newPayload[k] is List).toList();
+       if (dayIdx >= 0 && dayIdx < keys.length) {
+         final dayLabel = keys[dayIdx];
+         final activities = List.from(newPayload[dayLabel]);
+         indices.sort((a, b) => b.compareTo(a));
+         for (final i in indices) {
+            if (i >= 0 && i < activities.length) {
+                activities.removeAt(i);
+            }
+         }
+         newPayload[dayLabel] = activities;
+       }
     }
 
-    try {
-      final payload = jsonDecode(sanitize(raw)) as Map<String, dynamic>;
-      final days = ItineraryDay.parseFromMap(payload);
-      return _ItineraryViewData(days: days, payload: payload);
-    } catch (_) {
-      return const _ItineraryViewData(days: [], payload: null);
+    final provider = context.read<TripProvider>();
+    final trip = provider.currentTrip ?? widget.trip;
+    if (trip != null) {
+       final updatedTrip = trip.copyWith(itineraryOutput: jsonEncode(newPayload));
+       provider.setCurrentTrip(updatedTrip);
+       provider.saveCurrentTrip();
+       setState(() {});
     }
   }
 
-  Future<void> _applyTweak() async {
-    if (_tweakController.text.trim().isEmpty) return;
+  Future<void> _applyTweak([String? overrideText]) async {
+    final text = overrideText ?? _tweakController.text.trim();
+    if (text.isEmpty) return;
     setState(() => _isTweaking = true);
     
-    final success = await context.read<TripProvider>().editItinerary(
-      modification: _tweakController.text.trim(),
+    final provider = context.read<TripProvider>();
+    if (provider.currentTrip == null && widget.trip != null) {
+      provider.setCurrentTrip(widget.trip!);
+    }
+    
+    final success = await provider.editItinerary(
+      modification: text,
     );
 
     if (mounted) {
@@ -133,8 +195,18 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     }
   }
 
-  @override
+  Future<void> _shareItinerary() async {
+    final provider = context.read<TripProvider>();
+    final path = await provider.exportItinerary();
+    if (path != null) {
+      await Share.shareXFiles([XFile(path)], text: 'Check out my ${widget.trip?.destination} itinerary! 🌍');
+    } else {
+      Fluttertoast.showToast(msg: 'Failed to generate shareable document.');
+    }
+  }
+
   Widget build(BuildContext context) {
+    final s = context.read<LanguageProvider>().strings;
     final view = _buildViewData();
     final summary = (view.payload?['trip_summary'] as Map<String, dynamic>?) ?? const {};
     final budgetData = (view.payload?['budget_breakdown'] as Map<String, dynamic>?) ?? const {};
@@ -145,7 +217,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined),
-            onPressed: () {}, // Share functionality
+            tooltip: 'Share as DOCX',
+            onPressed: _shareItinerary,
           ),
           IconButton(
             icon: const Icon(Icons.bookmark_border_rounded),
@@ -177,7 +250,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 const SizedBox(height: 24),
 
                 // ── Mind Map Section (Web Parity) ──
-                const TBSectionHeader(title: '🧠 Visual Mind Map'),
+                TBSectionHeader(title: '🧠 ${s.visualMindMap}'),
                 const SizedBox(height: 12),
                 if (_distanceKm != null)
                   _DistanceBadge(distance: _distanceKm!)
@@ -187,7 +260,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 const SizedBox(height: 32),
 
                 // ── Day Timeline ──
-                const TBSectionHeader(title: '🗺️ Day-wise Journey'),
+                TBSectionHeader(title: '🗺️ ${s.dayWiseJourney}'),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 100,
@@ -224,27 +297,34 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 _DayCard(
                   day: view.days[_selectedDayIndex],
                   dayIndex: _selectedDayIndex,
+                  onDelete: (dayIdx, indices) => _deleteActivities(dayIdx, indices, view.payload),
                 ).animate(key: ValueKey(_selectedDayIndex)).fadeIn().slideY(begin: 0.1),
                 const SizedBox(height: 24),
 
                 // ── Budget Section (Web Parity) ──
-                const TBSectionHeader(title: '💰 Estimated Budget'),
+                TBSectionHeader(title: '💰 ${s.estimatedBudget}'),
                 const SizedBox(height: 12),
                 _BudgetBreakdown(budget: budgetData),
                 const SizedBox(height: 32),
 
                 // ── Tweak Plan (Web Parity) ──
-                const TBSectionHeader(title: '✏️ Tweak this Plan'),
+                TBSectionHeader(title: '✏️ ${s.tweakPlan}'),
                 const SizedBox(height: 12),
                 _TweakPanel(
                   controller: _tweakController,
                   isTweaking: _isTweaking,
-                  onApply: _applyTweak,
+                  onApply: (text) => _applyTweak(text),
+                  totalDays: view.days.length,
+                  selectedDay: _tweakDay,
+                  selectedTime: _tweakTime,
+                  timeSlots: _timeSlots,
+                  onDayChanged: (d) => setState(() => _tweakDay = d),
+                  onTimeChanged: (t) => setState(() => _tweakTime = t!),
                 ),
 
                 const SizedBox(height: 32),
                 TBPrimaryButton(
-                  label: 'Generate Reel Story',
+                  label: s.generateReel,
                   onPressed: () => Navigator.pushNamed(context, AppRoutes.story, arguments: widget.trip),
                   icon: Icons.movie_outlined,
                 ),
@@ -577,8 +657,8 @@ class _BudgetBreakdown extends StatelessWidget {
   final Map<String, dynamic> budget;
   const _BudgetBreakdown({required this.budget});
 
-  @override
   Widget build(BuildContext context) {
+    final s = context.read<LanguageProvider>().strings;
     final accommodation = budget['accommodation'] ?? '-';
     final food = budget['food'] ?? '-';
     final transport = budget['transport'] ?? '-';
@@ -588,13 +668,13 @@ class _BudgetBreakdown extends StatelessWidget {
     return TBCard(
       child: Column(
         children: [
-          _BudgetItem(label: 'Accommodation', value: accommodation, icon: Icons.hotel_outlined),
+          _BudgetItem(label: s.accommodation, value: accommodation, icon: Icons.hotel_outlined),
           const Divider(height: 20),
-          _BudgetItem(label: 'Food & Dining', value: food, icon: Icons.restaurant_outlined),
+          _BudgetItem(label: s.foodDining, value: food, icon: Icons.restaurant_outlined),
           const Divider(height: 20),
-          _BudgetItem(label: 'Local Transport', value: transport, icon: Icons.directions_bus_outlined),
+          _BudgetItem(label: s.localTransport, value: transport, icon: Icons.directions_bus_outlined),
           const Divider(height: 20),
-          _BudgetItem(label: 'Miscellaneous', value: misc, icon: Icons.shopping_bag_outlined),
+          _BudgetItem(label: s.miscellaneous, value: misc, icon: Icons.shopping_bag_outlined),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -653,12 +733,24 @@ class _BudgetItem extends StatelessWidget {
 class _TweakPanel extends StatelessWidget {
   final TextEditingController controller;
   final bool isTweaking;
-  final VoidCallback onApply;
+  final Function(String) onApply;
+  final int totalDays;
+  final int? selectedDay;
+  final String selectedTime;
+  final List<String> timeSlots;
+  final ValueChanged<int?> onDayChanged;
+  final ValueChanged<String?> onTimeChanged;
 
   const _TweakPanel({
     required this.controller,
     required this.isTweaking,
     required this.onApply,
+    required this.totalDays,
+    required this.selectedDay,
+    required this.selectedTime,
+    required this.timeSlots,
+    required this.onDayChanged,
+    required this.onTimeChanged,
   });
 
   @override
@@ -666,38 +758,119 @@ class _TweakPanel extends StatelessWidget {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppTheme.primary.withAlpha(30), width: 1.5),
+            boxShadow: [
+              BoxShadow(color: AppTheme.primary.withAlpha(10), blurRadius: 15, offset: const Offset(0, 5)),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Is something not quite right? Tell the AI what to change.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textHint),
+              Row(
+                children: [
+                  const Icon(Icons.edit_calendar_rounded, color: AppTheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'MODIFICATION OPTIONS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.primary.withAlpha(180),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              
+              // Day & Time Selection
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Target Day', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textHint)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: selectedDay,
+                              hint: const Text('Any Day', style: TextStyle(fontSize: 13)),
+                              isExpanded: true,
+                              items: [
+                                const DropdownMenuItem<int>(value: null, child: Text('Any Day')),
+                                ...List.generate(totalDays, (i) => DropdownMenuItem(value: i + 1, child: Text('Day ${i + 1}'))),
+                              ],
+                              onChanged: onDayChanged,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Time Slot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textHint)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedTime,
+                              isExpanded: true,
+                              items: timeSlots.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
+                              onChanged: onTimeChanged,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              const Text('What should we change?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textHint)),
+              const SizedBox(height: 8),
               TextField(
                 controller: controller,
                 maxLines: 2,
                 style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'e.g. Add more food stalls or make it slower...',
+                  hintText: 'e.g. Add a visit to Hawa Mahal or skip the market...',
                   fillColor: AppTheme.bgLight,
                   filled: true,
+                  contentPadding: const EdgeInsets.all(12),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TBPrimaryButton(
-                label: 'Apply Modification',
-                onPressed: isTweaking ? null : onApply,
+                label: 'Update Itinerary',
+                onPressed: isTweaking ? null : () {
+                  final modification = (selectedDay != null ? "On Day $selectedDay, at $selectedTime: " : "In $selectedTime: ") + controller.text;
+                  onApply(modification);
+                },
                 isLoading: isTweaking,
                 icon: Icons.auto_awesome_outlined,
               ),
@@ -712,7 +885,9 @@ class _TweakPanel extends StatelessWidget {
 class _DayCard extends StatefulWidget {
   final ItineraryDay day;
   final int dayIndex;
-  const _DayCard({required this.day, required this.dayIndex});
+  final void Function(int dayIndex, List<int> activityIndices) onDelete;
+
+  const _DayCard({required this.day, required this.dayIndex, required this.onDelete});
 
   @override
   State<_DayCard> createState() => _DayCardState();
@@ -725,8 +900,15 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
   @override
   void initState() {
     super.initState();
-    // Initialize checkboxes as unchecked
     _checkedItems = List.filled(widget.day.activities.length, false);
+  }
+
+  @override
+  void didUpdateWidget(_DayCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.day.activities.length != widget.day.activities.length) {
+      _checkedItems = List.filled(widget.day.activities.length, false);
+    }
   }
 
   void _toggleCheck(int index) {
@@ -877,16 +1059,30 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 2, bottom: 20),
-                                child: AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 200),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    height: 1.4,
-                                    fontWeight: isChecked ? FontWeight.w500 : FontWeight.w600,
-                                    color: isChecked ? AppTheme.textHint : AppTheme.textPrimary,
-                                    decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none,
-                                  ),
-                                  child: Text(activity),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: AnimatedDefaultTextStyle(
+                                        duration: const Duration(milliseconds: 200),
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          height: 1.4,
+                                          fontWeight: isChecked ? FontWeight.w500 : FontWeight.w600,
+                                          color: isChecked ? AppTheme.textHint : AppTheme.textPrimary,
+                                          decoration: isChecked ? TextDecoration.lineThrough : TextDecoration.none,
+                                        ),
+                                        child: Text(activity),
+                                      ),
+                                    ),
+                                    if (isChecked)
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                        onPressed: () => widget.onDelete(widget.dayIndex, [index]),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ).animate().fadeIn(),
+                                  ],
                                 ),
                               ),
                             ),

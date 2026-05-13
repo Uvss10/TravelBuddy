@@ -6,6 +6,7 @@ import '../../providers/trip_provider.dart';
 import '../../config/routes.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../providers/language_provider.dart';
 
 /// Professional Multi-step Trip Planning Wizard
 class CreateTripScreen extends StatefulWidget {
@@ -141,22 +142,23 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   }
 
   Widget _buildStep1() {
+    final s = context.read<LanguageProvider>().strings;
     return ListView(
       padding: const EdgeInsets.all(30),
       children: [
-        const Text('WHERE & WHEN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primary, letterSpacing: 1.5)),
+        Text(s.whereAndWhen, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primary, letterSpacing: 1.5)),
         const SizedBox(height: 8),
-        const Text('The adventure starts\nwith a destination.', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
+        Text(s.adventureStarts, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
         const SizedBox(height: 40),
         TBInputField(
-          label: 'Destination',
+          label: s.destination,
           hint: 'e.g. Kyoto, Japan',
           controller: _destinCtrl,
           icon: Icons.location_on_rounded,
         ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
         const SizedBox(height: 24),
         TBInputField(
-          label: 'Duration (Days)',
+          label: s.durationDays,
           hint: '3',
           controller: _daysCtrl,
           keyboardType: TextInputType.number,
@@ -167,12 +169,13 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   }
 
   Widget _buildStep2() {
+    final s = context.read<LanguageProvider>().strings;
     return ListView(
       padding: const EdgeInsets.all(30),
       children: [
-        const Text('BUDGET & STYLE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primary, letterSpacing: 1.5)),
+        Text(s.budgetAndStyle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primary, letterSpacing: 1.5)),
         const SizedBox(height: 8),
-        const Text('How do you want to\nexperience the world?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
+        Text(s.howExperience, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
         const SizedBox(height: 40),
         Column(
           children: _budgetOptions.map((opt) {
@@ -196,7 +199,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(opt['label'], style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isSel ? Colors.white : AppTheme.textPrimary)),
+                          Text(opt['label'] == 'Low' ? s.low : (opt['label'] == 'Medium' ? s.medium : s.high), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isSel ? Colors.white : AppTheme.textPrimary)),
                           Text(opt['desc'], style: TextStyle(fontSize: 12, color: isSel ? Colors.white70 : AppTheme.textHint)),
                         ],
                       ),
@@ -213,12 +216,13 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   }
 
   Widget _buildStep3() {
+    final s = context.read<LanguageProvider>().strings;
     return ListView(
       padding: const EdgeInsets.all(30),
       children: [
-        const Text('MOOD & INTERESTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primary, letterSpacing: 1.5)),
+        Text(s.moodAndInterests, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primary, letterSpacing: 1.5)),
         const SizedBox(height: 8),
-        const Text('What makes your soul\ndance with joy?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
+        Text(s.soulDance, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
         const SizedBox(height: 32),
         Wrap(
           spacing: 10,
@@ -241,7 +245,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9)),
         const SizedBox(height: 32),
         TBInputField(
-          label: 'Other specific interests',
+          label: s.otherInterests,
           hint: 'e.g. coffee tasting, local myths',
           controller: _interestsCtrl,
         ),
@@ -250,10 +254,11 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   }
 
   Widget _buildBottomNav() {
+    final s = context.read<LanguageProvider>().strings;
     return Container(
       padding: const EdgeInsets.fromLTRB(30, 0, 30, 40),
       child: TBPrimaryButton(
-        label: _currentStep == 2 ? 'Generate Masterpiece' : 'Next Step →',
+        label: _currentStep == 2 ? s.generateMasterpiece : s.nextStep,
         onPressed: _nextStep,
         icon: _currentStep == 2 ? Icons.auto_awesome_rounded : null,
       ),

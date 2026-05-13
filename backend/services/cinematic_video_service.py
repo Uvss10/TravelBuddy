@@ -44,7 +44,7 @@ REEL_H        = 1280
 FPS           = 30           # Lower FPS for 2x faster rendering
 DURATION_S    = 60           # 1 minute default reel
 TOTAL_FRAMES  = FPS * DURATION_S          # 3600 frames
-FADE_FRAMES   = int(FPS * 0.45)          # 0.45 s transition
+FADE_FRAMES   = int(FPS * 0.8)           # 0.8 s transition for professional smoothness
 VIDEO_BITRATE = "8000k"
 OUTPUT_DIR    = Path("data/generated_videos")
 
@@ -87,26 +87,89 @@ def _load_photo_bgr(path: str, w: int, h: int) -> np.ndarray:
     resolution, eliminating the double-scale blur.
     """
     try:
-        from PIL import ImageOps as _IOps
-        pil = PILImage.open(path).convert("RGB")
+        from PIL import ImageOps as _IOps, ImageCms as _ICms
+        import io
+        with PILImage.open(path) as _pil:
+            pil = _pil.copy()
+            pil.info = _pil.info.copy()
+        
+        # Preserve authentic colors: Convert smartphone Display P3 to standard sRGB
+        icc = pil.info.get('icc_profile')
+        if icc:
+            try:
+                f = io.BytesIO(icc)
+                src_profile = _ICms.ImageCmsProfile(f)
+                dst_profile = _ICms.createProfile('sRGB')
+                pil = _ICms.profileToProfile(pil, src_profile, dst_profile)
+            except Exception:
+                pass
+                
+        pil = pil.convert("RGB")
         pil = _IOps.exif_transpose(pil)         # correct EXIF rotation
 
         orig_w, orig_h = pil.size
         target_ratio   = w / h
         src_ratio      = orig_w / orig_h
 
-        # ── Cover-crop to target ratio ────────────────────────────────────────
+        # ── Cover-crop to target ratio (Smart Face Crop) ──────────────────────
         if src_ratio > target_ratio:
-            # Image is wider — crop sides equally
+            # Image is wider — crop sides
             new_w = int(orig_h * target_ratio)
-            left  = (orig_w - new_w) // 2
-            pil   = pil.crop((left, 0, left + new_w, orig_h))
+            
+            # Detect faces to center crop horizontally
+            cv_img = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+            gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+            
+            # Scale down for faster, robust detection
+            scale = 1.0
+            if orig_w > 800:
+                scale = 800 / orig_w
+                gray = cv2.resize(gray, (800, int(orig_h * scale)), interpolation=cv2.INTER_AREA)
+                
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            if len(faces) == 0:
+                profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+                faces = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            
+            if len(faces) > 0:
+                face_centers = [(x + fw/2) / scale for (x, y, fw, fh) in faces]
+                avg_face_x = sum(face_centers) / len(face_centers)
+                left = int(avg_face_x - new_w / 2)
+            else:
+                left = (orig_w - new_w) // 2
+                
+            left = max(0, min(orig_w - new_w, left))
+            pil = pil.crop((left, 0, left + new_w, orig_h))
         else:
             # Image is taller — crop top/bottom
-            # 35% from top so faces/subjects stay centred (not 30% which cuts chins)
             new_h = int(orig_w / target_ratio)
-            top   = int((orig_h - new_h) * 0.35)
-            pil   = pil.crop((0, top, orig_w, top + new_h))
+            
+            # Detect faces to center crop vertically
+            cv_img = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+            gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+            
+            scale = 1.0
+            if orig_w > 800:
+                scale = 800 / orig_w
+                gray = cv2.resize(gray, (800, int(orig_h * scale)), interpolation=cv2.INTER_AREA)
+                
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            if len(faces) == 0:
+                profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+                faces = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+            
+            if len(faces) > 0:
+                face_centers_y = [(y + fh/2) / scale for (x, y, fw, fh) in faces]
+                avg_face_y = sum(face_centers_y) / len(face_centers_y)
+                target_y_in_crop = new_h * 0.35 # slightly above center
+                top = int(avg_face_y - target_y_in_crop)
+            else:
+                top = int((orig_h - new_h) * 0.35)
+                
+            top = max(0, min(orig_h - new_h, top))
+            pil = pil.crop((0, top, orig_w, top + new_h))
 
         # ── FIX: Resize to 2x render resolution, not 1x ───────────────────────
         # Downsampling from 2x → 1x in get_transform gives clean sub-pixel
@@ -159,13 +222,7 @@ def _render_cinematic(
     
     ffmpeg_bin = _find_ffmpeg()
     if ffmpeg_bin:
-        # ── Professional After Effects (FFmpeg Filters) ───────────────
-        # 1. unsharp: Subtle sharpening for crispness
-        # 2. eq: Slight saturation and contrast bump for punchy colors
-        # 3. vignette: Smooth cinematic corner darkening
-        # 4. noise: Subtle organic film grain
-        vf_chain = "unsharp=5:5:0.5:3:3:0.0,eq=saturation=1.1:contrast=1.05,vignette=PI/4,noise=alls=2:allf=t+u"
-        
+        # Removed color & saturation ffmpeg filters to keep original image colors
         cmd = [
             ffmpeg_bin, "-y",
             "-f", "rawvideo",
@@ -175,7 +232,7 @@ def _render_cinematic(
             "-r", str(fps),
             "-i", "-",
             "-an",
-            "-vf", vf_chain,
+            # We use fast preset for rapid rendering
             "-vcodec", "libx264", "-preset", "fast",
             "-pix_fmt", "yuv420p",
             tmp_silent
@@ -223,24 +280,9 @@ def _render_cinematic(
             if p not in photo_cache:
                 raw = _load_photo_bgr(p, REEL_W, REEL_H)
                 
-                # Sharpness filter: if Laplacian < 50, it's very blurry
-                sharp = _calculate_sharpness(raw)
-                if sharp < 50:
-                    print(f"[Cinematic] Photo {Path(p).name} is blurry (score {sharp:.1f}). Applying subtle sharpening...")
-                    # Apply a bit of sharpening filter instead of skipping (skipping breaks timeline)
-                    kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-                    raw = cv2.filter2D(raw, -1, kernel)
-
-                # ── FIX: Do NOT force-normalize exposure (causes blown-out faces).
-                # Only apply gentle CLAHE per-channel to lift local contrast if
-                # the photo actually requires it (contrast < 40).
-                gray = cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
-                contrast = gray.std()
-                if contrast < 40.0:
-                    print(f"[Cinematic] Photo {Path(p).name} has low contrast ({contrast:.1f}). Enhancing...")
-                    photo_cache[p] = _gentle_enhance(raw)
-                else:
-                    photo_cache[p] = raw
+                # Removed contrast CLAHE, normalization, and sharpness filters entirely as requested
+                # to keep the pure original image quality.
+                photo_cache[p] = raw
 
         # ── Pre-build keyframes ────────────────────────────────────────────────
         keyframes = {

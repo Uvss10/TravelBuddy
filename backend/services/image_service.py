@@ -58,8 +58,9 @@ def _refine_image_for_reel(src_path: str, dest_path: str, needs_contrast_boost: 
                 img = Image.fromarray(rgb)
                 print(f"[Refine] Successfully developed RAW: {src_path}")
         else:
-            img = Image.open(src_path)
-
+            with Image.open(src_path) as _img:
+                img = _img.copy()
+                img.info = _img.info.copy()
         img = ImageOps.exif_transpose(img)
         if img.mode != 'RGB':
             img = img.convert('RGB')
@@ -124,7 +125,10 @@ def _analyze_single_image(path):
             "face":      float(detect_faces(image=img_array)),
             "composition": float(calculate_composition_score(img_array)["composite"]),
         }
-    except Exception:
+    except Exception as e:
+        print(f"[Analyze Single] Failed for {path}: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
@@ -235,7 +239,15 @@ def process_uploaded_images(image_paths):
             if not _make_thumbnail_b64(res["image_path"]):
                 return
             raw  = utils.call_vision_llm(res["image_path"], prompt)
-            v    = json.loads(raw)
+            
+            # Robust JSON parsing since Vision models cannot use response_format={"type":"json_object"}
+            cleaned_raw = raw.strip()
+            if "```json" in cleaned_raw:
+                cleaned_raw = cleaned_raw.split("```json")[1].split("```")[0].strip()
+            elif "```" in cleaned_raw:
+                cleaned_raw = cleaned_raw.split("```")[1].split("```")[0].strip()
+            
+            v = json.loads(cleaned_raw)
             bonus = (v.get("aesthetic_score", 0) * 0.8 +
                      v.get("smile_score",     0) * 0.7 +
                      v.get("landmark_score",  0) * 0.5)

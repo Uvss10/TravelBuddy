@@ -69,7 +69,8 @@ def _try_moviepy(image_paths: List[str], captions: List[str], out_path: str) -> 
 
         try:
             # Load + crop to 9:16 (cover-fit)
-            pil = PILImage.open(img_path).convert("RGB")
+            with PILImage.open(img_path) as _pil:
+                pil = _pil.convert("RGB")
             orig_w, orig_h = pil.size
             target_ratio   = REEL_W / REEL_H
             src_ratio      = orig_w / orig_h

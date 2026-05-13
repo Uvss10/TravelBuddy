@@ -107,10 +107,9 @@ class PhotoMeta:
         Resolution gate runs before analysis; these check computed scores.
         """
         return (
-            self.blur_score > 25.0          # raised from 10 — reject soft/motion-blurred
-            and self.exposure_score > 0.25  # raised from 0.20 — reject crushed/blown shots
-            and self.noise_score > 0.30     # raised from 0.25 — reject heavy grain
-            and min(self.width, self.height) >= 720  # resolution gate
+            self.blur_score > 5.0           # relaxed to allow softer shots
+            and self.exposure_score > 0.10  # relaxed to allow darker/moody shots
+            and min(self.width, self.height) >= 300  # relaxed to allow social-media compressed images
         )
 
     @property
@@ -535,76 +534,28 @@ def analyze_photos(image_paths: List[str]) -> List[PhotoMeta]:
 def sort_for_storytelling(photos: List[PhotoMeta]) -> List[PhotoMeta]:
     """
     Order photos for the cinematic reel.
-
-    FIX — Chronological-first ordering:
-    ─────────────────────────────────────────────────────────────
-    OLD approach:  sorted by quality score → photos jumped around in time.
-      Result: a face taken at 9 AM could appear after a sunset at 7 PM.
-
-    NEW approach:
-      1. Sort all photos by file mtime (= phone camera capture time).
-         This preserves the natural story order the user experienced.
-      2. Pick the BEST quality photo as the opener (swap it to front).
-         This hooks the viewer immediately, even if it was taken mid-trip.
-      3. Pick the best face-shot as the closer (swap it to end).
-         Emotional farewell, but everything between stays in time order.
-    ─────────────────────────────────────────────────────────────
+    Strictly chronological as per user request.
     """
     if not photos:
         return photos
 
-    # ── 1. Sort chronologically by file mtime ───────────────────────────────
     def _mtime(p: PhotoMeta) -> float:
         try:
             return os.path.getmtime(p.path)
         except Exception:
             return 0.0
 
-    chrono = sorted(photos, key=_mtime)
-
-    n = len(chrono)
-    if n <= 2:
-        for i, p in enumerate(chrono):
-            p.story_position = "opener" if i == 0 else "closer"
-            p.sort_index = i
-        return chrono
-
-    # ── 2. Pick opener: highest overall_quality (often landscape/golden hour) ─
-    best_idx = max(range(n), key=lambda i: chrono[i].overall_quality + chrono[i].color_vibrancy)
-    opener_photo = chrono[best_idx]
-    remaining = [p for i, p in enumerate(chrono) if i != best_idx]
-
-    # ── 3. Pick closer: best face shot for emotional farewell ─────────────────
-    face_shots = [(i, p) for i, p in enumerate(remaining) if p.face_score > 1.0]
-    if face_shots:
-        closer_idx, closer_photo = max(face_shots, key=lambda x: x[1].face_score + x[1].overall_quality)
-    else:
-        # No face shots — use last photo chronologically as closer
-        closer_idx = len(remaining) - 1
-        closer_photo = remaining[closer_idx]
-    middle = [p for i, p in enumerate(remaining) if i != closer_idx]
-
-    # ── 4. Keep middle in chronological order — NO re-sorting ────────────────
-    # Middle photos stay exactly as the user experienced them on the trip.
-
-    # ── 5. Assign story positions for timeline weighting ─────────────────────
-    opener_photo.story_position = "opener"
-    closer_photo.story_position = "closer"
-    total_mid = len(middle)
-    for i, p in enumerate(middle):
-        t = i / max(total_mid - 1, 1)
-        if t < 0.25:
-            p.story_position = "early"
-        elif t < 0.60:
-            p.story_position = "middle"
-        elif t < 0.80:
-            p.story_position = "peak"
-        else:
-            p.story_position = "middle"
-
-    final = [opener_photo] + middle + [closer_photo]
+    final = sorted(photos, key=_mtime)
+    n = len(final)
     for i, p in enumerate(final):
         p.sort_index = i
+        t = i / max(n - 1, 1)
+        if t < 0.15:
+            p.story_position = "opener"
+        elif t > 0.85:
+            p.story_position = "closer"
+        else:
+            p.story_position = "middle"
 
     return final
 
@@ -664,7 +615,7 @@ def _analyze_single(path: str) -> Optional[PhotoMeta]:
         import PIL.Image as _PILImg
         with _PILImg.open(path) as _im:
             _w, _h = _im.size
-        if min(_w, _h) < 720:
+        if min(_w, _h) < 300:
             meta = PhotoMeta(path=path, width=_w, height=_h)
             meta.score_breakdown = {
                 "scene": "unknown", "sharpness": 0.0, "exposure": 0.0,

@@ -25,6 +25,7 @@ Each transition function signature:
 from __future__ import annotations
 
 import math
+import random
 import cv2
 import numpy as np
 from typing import Callable
@@ -161,10 +162,67 @@ def _light_leak(a, b, t, w, h) -> np.ndarray:
 def _dip_black(a, b, t, w, h) -> np.ndarray:
     """Fade current to black, then fade up to next. Elegant outro."""
     black = np.zeros((h, w, 3), dtype=np.uint8)
-    if t < 0.5:
-        return _blend(a, black, t * 2)
+    te = _ease_inout(t)
+    if te < 0.5:
+        return _blend(a, black, te * 2)
     else:
-        return _blend(black, b, (t - 0.5) * 2)
+        return _blend(black, b, (te - 0.5) * 2)
+
+
+def _glitch(a, b, t, w, h) -> np.ndarray:
+    """Cyberpunk glitch: random channel shifts and horizontal slicing."""
+    te = _ease_inout(t)
+    if te < 0.1 or te > 0.9:
+        return a if te < 0.1 else b
+    
+    # Peak glitch at middle
+    intensity = math.sin(te * math.pi)
+    
+    # Random slice offset
+    shift = int(intensity * 30 * random.uniform(-1, 1))
+    
+    # Create glitch frame
+    glitched = _blend(a, b, te)
+    if random.random() > 0.7:
+        # Shift channels
+        rows, cols, _ = glitched.shape
+        glitched[:, :, 0] = np.roll(glitched[:, :, 0], shift, axis=1)
+        glitched[:, :, 1] = np.roll(glitched[:, :, 1], -shift, axis=1)
+        
+    return glitched
+
+
+def _flash_white(a, b, t, w, h) -> np.ndarray:
+    """Bright white flash transition."""
+    te = _ease_inout(t)
+    white = np.full((h, w, 3), 255, dtype=np.uint8)
+    if te < 0.5:
+        return _blend(a, white, te * 2)
+    else:
+        return _blend(white, b, (te - 0.5) * 2)
+
+
+def _zoom_blur(a, b, t, w, h) -> np.ndarray:
+    """Radial zoom blur that expands from center and resolves to next slide."""
+    te = _ease_inout(t)
+    # Radial blur effect via multi-scale blending
+    canvas = _blend(a, b, te)
+    
+    # Peak intensity at t=0.5
+    intensity = math.sin(te * math.pi)
+    if intensity < 0.1:
+        return canvas
+        
+    # Approximate zoom blur with 3 layers of scaling
+    blended = canvas.astype(np.float32)
+    scales = [1.02, 1.05, 1.10]
+    for s in scales:
+        s_val = 1.0 + (s - 1.0) * intensity
+        scaled = _scale_center(canvas, s_val, w, h)
+        blended += scaled.astype(np.float32)
+    
+    return (blended / (len(scales) + 1)).astype(np.uint8)
+
 
 
 # ── Scale center helper ────────────────────────────────────────────────────────
@@ -200,6 +258,9 @@ _TRANSITIONS: dict[str, TransitionFn] = {
     "whip_right":        _whip_right,
     "light_leak":        _light_leak,
     "dip_black":         _dip_black,
+    "glitch":            _glitch,
+    "flash_white":       _flash_white,
+    "zoom_blur":         _zoom_blur,
 }
 
 

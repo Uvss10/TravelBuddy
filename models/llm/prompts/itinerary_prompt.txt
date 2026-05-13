@@ -14,27 +14,32 @@ STRICT RULES — MANDATORY:
 1. USE THE VERIFIED DATA: If "REAL VERIFIED DATA" is provided above, you MUST prioritize those specific places, eateries, and tips. Do not hallucinate generic names if real ones are available.
 2. NEVER use generic phrases like "Visit City Center", "Local Restaurant", "Museum". Use REAL, NAMED places ONLY.
 3. Each day MUST include:
-   - 2-3 MUST-VISIT iconic landmarks with a fact about each
-   - 1 FAMOUS STREET FOOD stop (exact dish + exact stall/eatery + approx price)
-   - 1 FAMOUS LOCAL MARKET or SHOP (exact name + what to buy)
-   - 1 HIDDEN GEM or LOCAL TIP tourists miss
+   - MORNING: Iconic landmark with a fascinating historical fact + practical entry tip.
+   - AFTERNOON: A cultural experience OR hidden gem + STREET FOOD (exact dish at exact stall/eatery + price).
+   - EVENING: Scenic spot OR local walk + MARKET/SHOP (exact name + what unique item to buy).
+   - NIGHT: Best place for dinner or a night view.
+   - NOTES: A genuine insider tip (e.g. "Ask for the special sauce", "The back entrance is less crowded").
 4. Budget Calibration:
    - Low: free attractions, walking/local buses, dhabas.
    - Medium: auto-rickshaws, mid-range cafes, ticketed monuments.
    - High: private cab, heritage hotels, premium dining.
-5. Format as JSON only.
 
 Return ONLY valid JSON — NO extra text, NO markdown, NO explanation:
 {
-  "city": "{destination}",
+  "trip_summary": {
+    "destination": "{destination}",
+    "tagline": "A poetic one-sentence summary of this trip",
+    "travel_style": "e.g. Heritage & Food",
+    "intensity_score": "1-10"
+  },
   "days": [
     {
       "day": 1,
-      "morning": "[Exact Landmark + local insider detail + practical tip]",
-      "afternoon": "[Exact activity] — Street food: [dish name at exact stall name, price]",
-      "evening": "[Exact activity] — Market/Shop: [exact name, what to buy]",
-      "notes": "[Genuine insider tip or budget tip]"
-    },
-    ...
+      "morning": "[Exact Landmark + fact + tip]",
+      "afternoon": "[Activity] — Street food: [dish at stall, price]",
+      "evening": "[Activity] — Market: [name, item]",
+      "night": "[Dinner spot or night view]",
+      "notes": "[Insider Tip]"
+    }
   ]
 }

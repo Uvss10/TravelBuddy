@@ -250,21 +250,35 @@ class ItineraryDay {
           .whereType<Map<String, dynamic>>()
           .map((dayMap) {
             final dayNumber = dayMap['day'];
-            final activities = (dayMap['activities'] as List? ?? const [])
-                .whereType<Map<String, dynamic>>()
-                .map((activity) {
-                  final place = (activity['place_name'] ?? '').toString().trim();
-                  final time = (activity['recommended_time'] ?? '').toString().trim();
-                  final desc = (activity['description'] ?? '').toString().trim();
-
-                  final parts = <String>[];
-                  if (time.isNotEmpty) parts.add(time);
-                  if (place.isNotEmpty) parts.add(place);
-                  if (desc.isNotEmpty) parts.add(desc);
-
-                  return parts.isEmpty ? 'Activity' : parts.join(' • ');
-                })
-                .toList();
+            List<String> activities = [];
+            
+            if (dayMap.containsKey('activities') && dayMap['activities'] is List) {
+                activities = (dayMap['activities'] as List)
+                    .whereType<Map<String, dynamic>>()
+                    .map((activity) {
+                      final place = (activity['place_name'] ?? '').toString().trim();
+                      final time = (activity['recommended_time'] ?? '').toString().trim();
+                      final desc = (activity['description'] ?? '').toString().trim();
+                      final parts = <String>[];
+                      if (time.isNotEmpty) parts.add(time);
+                      if (place.isNotEmpty) parts.add(place);
+                      if (desc.isNotEmpty) parts.add(desc);
+                      return parts.isEmpty ? 'Activity' : parts.join(' • ');
+                    })
+                    .toList();
+            } else {
+               // Fallback to specific slots (morning, afternoon, evening, night)
+               for (final slot in ['morning', 'afternoon', 'evening', 'night']) {
+                  final val = dayMap[slot];
+                  if (val != null && val.toString().isNotEmpty) {
+                    activities.add('${slot.toUpperCase()}: ${val.toString()}');
+                  }
+               }
+               final notes = dayMap['notes'];
+               if (notes != null && notes.toString().isNotEmpty) {
+                  activities.add('TIP: ${notes.toString()}');
+               }
+            }
 
             final label = dayNumber == null ? 'Day' : 'Day $dayNumber';
             return ItineraryDay(label: label, activities: activities);

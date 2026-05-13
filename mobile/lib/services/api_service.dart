@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../config/api_config.dart';
 import '../models/trip_model.dart';
@@ -161,6 +162,33 @@ class ApiService {
       return ApiResult.success(updatedTrip);
     } on DioException catch (e) {
       return ApiResult.failure(_mapError(e));
+    }
+  }
+
+  Future<ApiResult<String>> exportItineraryDocx(TripModel trip) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final savePath = '${tempDir.path}/Itinerary_${trip.destination}.docx';
+      
+      final itineraryData = {
+        'destination': trip.destination,
+        'total_days': trip.days,
+        'budget_category': trip.budget,
+        'itinerary_ai_output': jsonDecode(trip.itineraryOutput ?? '{}'),
+      };
+
+      await _dio.download(
+        ApiConfig.itineraryDocx,
+        savePath,
+        data: itineraryData,
+        options: Options(method: 'POST'),
+      );
+      
+      return ApiResult.success(savePath);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    } catch (e) {
+      return ApiResult.failure(e.toString());
     }
   }
 

@@ -113,6 +113,12 @@ class TripProvider extends ChangeNotifier {
     }
   }
 
+  void setCurrentTrip(TripModel trip) {
+    _currentTrip = trip;
+    notifyListeners();
+  }
+
+
   Future<bool> editItinerary({required String modification}) async {
     if (_currentTrip == null) return false;
     _itineraryState = LoadState.loading;
@@ -135,6 +141,18 @@ class TripProvider extends ChangeNotifier {
       _itineraryState = LoadState.error;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<String?> exportItinerary() async {
+    if (_currentTrip == null) return null;
+    final result = await _api.exportItineraryDocx(_currentTrip!);
+    if (result.isSuccess) {
+      return result.data;
+    } else {
+      _errorMessage = result.error;
+      notifyListeners();
+      return null;
     }
   }
 

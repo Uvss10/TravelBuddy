@@ -85,7 +85,8 @@ class AppRoutes {
         final url = settings_.arguments as String?;
         return _slideRoute(ReelPreviewScreen(videoUrl: url), settings_);
       case downloadShare:
-        return _slideRoute(const DownloadShareScreen(), settings_);
+        final url = settings_.arguments as String?;
+        return _slideRoute(DownloadShareScreen(videoUrl: url), settings_);
       // ── Reel Studio routes ──────────────────────────────────────────────────
       case reelStudio:
         return _slideRoute(const ReelStudioScreen(), settings_);

@@ -50,11 +50,39 @@ class _ReelCurationScreenState extends State<ReelCurationScreen>
   Widget build(BuildContext context) {
     final provider = context.watch<ReelDraftProvider>();
 
-    // While still loading, show spinner
     if (provider.stage == ReelStudioStage.uploading ||
         provider.stage == ReelStudioStage.analyzing ||
         provider.stage == ReelStudioStage.idle) {
       return const _AnalysisWaitScreen();
+    }
+
+    if (provider.stage == ReelStudioStage.error) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F0F1A),
+        appBar: AppBar(backgroundColor: Colors.transparent),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
+                const SizedBox(height: 16),
+                Text(
+                  provider.error ?? 'An unknown error occurred.',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     final allPhotos = provider.allPhotos;

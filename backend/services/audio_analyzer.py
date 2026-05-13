@@ -269,8 +269,10 @@ def _build_cut_points(
     last_cut = -1.0
     for bt in beat_times:
         e = energy_at(bt)
-        # Min gap between cuts: 0.5 s (high energy) → 2.0 s (low energy)
-        min_gap = 2.0 - (e * 1.5)   # 0.5 s at e=1.0, 2.0 s at e=0.0
+        # Tighter cuts for better "after effects" feel
+        # Min gap: 0.35s (intense peak) to 1.8s (scenic)
+        min_gap = 1.8 - (e * 1.45)   # 0.35s at e=1.0, 1.8s at e=0.0
+        
         if bt - last_cut >= min_gap:
             cut_points.append(round(bt, 4))
             last_cut = bt

@@ -144,20 +144,25 @@ def _build_motion(
     pan_x *= intensity
     pan_y *= intensity
 
-    # Section-specific overrides
+    easing = base.easing
+
+    # New: Add rotation and 3D-style shifts
     if section == "intro":
         easing = "ease_out"
-        zoom_end = zoom_start + 0.03  # very subtle intro
+        zoom_end = zoom_start + 0.04
     elif section == "peak":
         easing = "ease_in"
-        zoom_end = min(1.15, zoom_start + zoom_range * 1.2)  # aggressive zoom
-    elif section == "outro":
-        easing = "ease_out"
-        zoom_end = zoom_start + 0.02  # gentle resolution
-        pan_x, pan_y = 0.0, 0.0
-    else:
-        easing = base.easing
-
+        zoom_end = min(1.20, zoom_start + zoom_range * 1.5)
+        # Intense shake/pan for peak
+        pan_x *= 1.5
+        pan_y *= 1.5
+    elif section == "scenic":
+        easing = "ease_inout"
+        # Dolly Zoom effect (counter-scaling) for some slides
+        if index % 4 == 0:
+            zoom_start = 1.15
+            zoom_end = 1.0
+    
     return MotionProfile(
         zoom_start=round(zoom_start, 4),
         zoom_end=round(zoom_end, 4),
@@ -232,7 +237,11 @@ def build_timeline(
         sampled_photos = [photos[int(i * step)] for i in range(target_photo_count)]
         print(f"[Timeline] Sampled {target_photo_count} photos from {n_original} for a cleaner {total_duration}s edit.")
     else:
-        sampled_photos = photos
+        # Strictly chronological as per user request
+        def _mtime(p):
+            try: return os.path.getmtime(p.path)
+            except: return 0.0
+        sampled_photos = sorted(photos, key=_mtime)
 
     n = len(sampled_photos)
     

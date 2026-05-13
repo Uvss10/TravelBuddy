@@ -5,9 +5,12 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../config/routes.dart';
 
+import '../../services/video_cache_manager.dart';
+
 /// Download & Share screen.
 class DownloadShareScreen extends StatelessWidget {
-  const DownloadShareScreen({super.key});
+  final String? videoUrl;
+  const DownloadShareScreen({super.key, this.videoUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -42,26 +45,54 @@ class DownloadShareScreen extends StatelessWidget {
             icon: Icons.download_rounded,
             label: 'Download Reel',
             sub: 'Save to your device gallery',
-            onTap: () => Fluttertoast.showToast(
-              msg: 'Download started! (Connect backend for real file)',
-              backgroundColor: AppTheme.success,
-            ),
+            onTap: () async {
+              if (videoUrl == null || videoUrl!.isEmpty) return;
+              Fluttertoast.showToast(msg: 'Saving to Gallery...', backgroundColor: AppTheme.success);
+              final success = await VideoCacheManager.saveToGallery(videoUrl!);
+              if (success) {
+                Fluttertoast.showToast(msg: 'Saved automatically to Gallery! 🎉', backgroundColor: AppTheme.success);
+              } else {
+                Fluttertoast.showToast(msg: 'Failed to save to Gallery.', backgroundColor: AppTheme.error);
+              }
+            },
           ),
           const SizedBox(height: 12),
           _ShareOption(
             icon: Icons.share_outlined,
             label: 'Share to Apps',
             sub: 'Instagram, WhatsApp, more…',
-            onTap: () => Share.share(
-              'Check out my TravelBuddy reel! 🌍✈️ #TravelBuddy #TravelReel',
-            ),
+            onTap: () async {
+              if (videoUrl == null || videoUrl!.isEmpty) {
+                Share.share('Check out my TravelBuddy reel! 🌍✈️ #TravelBuddy #TravelReel');
+                return;
+              }
+              try {
+                Fluttertoast.showToast(msg: 'Preparing video for share...', backgroundColor: AppTheme.primary);
+                final file = await VideoCacheManager.fetchAndCacheVideo(videoUrl!);
+                await Share.shareXFiles(
+                  [XFile(file.path)],
+                  text: 'Check out my TravelBuddy reel! 🌍✈️ #TravelBuddy #TravelReel',
+                );
+              } catch (e) {
+                Share.share('Check out my TravelBuddy reel! 🌍✈️ $videoUrl\n#TravelBuddy #TravelReel');
+              }
+            },
           ),
           const SizedBox(height: 12),
           _ShareOption(
             icon: Icons.link,
             label: 'Copy Link',
             sub: 'Share a link to your reel',
-            onTap: () => Fluttertoast.showToast(msg: 'Link copied!', backgroundColor: AppTheme.success),
+            onTap: () {
+              if (videoUrl != null && videoUrl!.isNotEmpty) {
+                // To actually copy to clipboard you would use:
+                // Clipboard.setData(ClipboardData(text: videoUrl!));
+                Share.share('Check out my TravelBuddy reel! 🌍✈️ $videoUrl\n#TravelBuddy #TravelReel');
+                Fluttertoast.showToast(msg: 'Link prepared!', backgroundColor: AppTheme.success);
+              } else {
+                Fluttertoast.showToast(msg: 'No link available.', backgroundColor: AppTheme.error);
+              }
+            },
           ),
           const SizedBox(height: 40),
 

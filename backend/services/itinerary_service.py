@@ -31,16 +31,30 @@ def _parse_itinerary_json(raw: str):
     """Extract JSON from LLM output, stripping markdown if present."""
     import re
     raw = raw.strip()
-    # Try to find a JSON block within markdown fences
-    match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw, re.DOTALL)
+    # Try to find a JSON block within markdown fences (handling both { } and [ ])
+    match = re.search(r'```(?:json)?\s*([\{\[].*?[\}\]])\s*```', raw, re.DOTALL)
     if match:
         raw_json = match.group(1)
     else:
-        # Find outermost { }
-        start = raw.find("{")
-        end   = raw.rfind("}") + 1
+        # Find outermost { } or [ ]
+        # We look for the first { or [ and the last } or ]
+        first_brace = raw.find("{")
+        first_bracket = raw.find("[")
+        
+        start = -1
+        if first_brace >= 0 and (first_bracket < 0 or first_brace < first_bracket):
+            start = first_brace
+            end = raw.rfind("}") + 1
+        elif first_bracket >= 0:
+            start = first_bracket
+            end = raw.rfind("]") + 1
+            
         if start < 0 or end <= 0:
-            raise ValueError("No JSON found")
+            # Last ditch effort: see if the whole thing is just a JSON string
+            try:
+                return json.loads(raw)
+            except:
+                raise ValueError("No JSON found")
         raw_json = raw[start:end]
         
     return json.loads(raw_json)

@@ -20,6 +20,15 @@ class AppStrings {
   final String createTrip, destination, days, budget, interests;
   final String generating, pleaseWait, success, error, tryAgain;
 
+  // New fields
+  final String whereAndWhen, adventureStarts, durationDays;
+  final String budgetAndStyle, howExperience, low, medium, high;
+  final String moodAndInterests, soulDance, otherInterests;
+  final String nextStep, generateMasterpiece;
+  final String yourAdventure, visualMindMap, dayWiseJourney, estimatedBudget;
+  final String accommodation, foodDining, localTransport, miscellaneous;
+  final String achievements, myExpeditions, editProfile;
+
   const AppStrings({
     required this.appName,
     required this.home, required this.trips, required this.reels, required this.profile,
@@ -41,6 +50,14 @@ class AppStrings {
     required this.days, required this.budget, required this.interests,
     required this.generating, required this.pleaseWait, required this.success,
     required this.error, required this.tryAgain,
+    required this.whereAndWhen, required this.adventureStarts, required this.durationDays,
+    required this.budgetAndStyle, required this.howExperience, required this.low,
+    required this.medium, required this.high, required this.moodAndInterests,
+    required this.soulDance, required this.otherInterests, required this.nextStep,
+    required this.generateMasterpiece, required this.yourAdventure, required this.visualMindMap,
+    required this.dayWiseJourney, required this.estimatedBudget, required this.accommodation,
+    required this.foodDining, required this.localTransport, required this.miscellaneous,
+    required this.achievements, required this.myExpeditions, required this.editProfile,
   });
 }
 
@@ -67,6 +84,17 @@ const _en = AppStrings(
   budget: 'Budget', interests: 'Interests',
   generating: 'Generating...', pleaseWait: 'Please wait',
   success: 'Success', error: 'Error', tryAgain: 'Try Again',
+  whereAndWhen: 'WHERE & WHEN', adventureStarts: 'The adventure starts\nwith a destination.',
+  durationDays: 'Duration (Days)', budgetAndStyle: 'BUDGET & STYLE',
+  howExperience: 'How do you want to\nexperience the world?', low: 'Low', medium: 'Medium', high: 'High',
+  moodAndInterests: 'MOOD & INTERESTS', soulDance: 'What makes your soul\ndance with joy?',
+  otherInterests: 'Other specific interests', nextStep: 'Next Step →',
+  generateMasterpiece: 'Generate Masterpiece', yourAdventure: 'Your Adventure',
+  visualMindMap: 'Visual Mind Map', dayWiseJourney: 'Day-wise Journey',
+  estimatedBudget: 'Estimated Budget', accommodation: 'Accommodation',
+  foodDining: 'Food & Dining', localTransport: 'Local Transport',
+  miscellaneous: 'Miscellaneous', achievements: 'ACHIEVEMENTS',
+  myExpeditions: 'MY EXPEDITION RECORDS', editProfile: 'Edit Explorer Profile',
 );
 
 const _hi = AppStrings(
@@ -92,6 +120,17 @@ const _hi = AppStrings(
   budget: 'बजट', interests: 'रुचियां',
   generating: 'बन रहा है...', pleaseWait: 'कृपया प्रतीक्षा करें',
   success: 'सफलता', error: 'त्रुटि', tryAgain: 'फिर प्रयास करें',
+  whereAndWhen: 'कहाँ और कब', adventureStarts: 'रोमांच एक गंतव्य से\nशुरू होता है।',
+  durationDays: 'अवधि (दिन)', budgetAndStyle: 'बजट और शैली',
+  howExperience: 'आप दुनिया का अनुभव\nकैसे करना चाहते हैं?', low: 'कम', medium: 'मध्यम', high: 'अधिक',
+  moodAndInterests: 'मूड और रुचियां', soulDance: 'क्या आपकी आत्मा को\nखुशी से नचाता है?',
+  otherInterests: 'अन्य विशिष्ट रुचियां', nextStep: 'अगला कदम →',
+  generateMasterpiece: 'मास्टरपीस बनाएं', yourAdventure: 'आपका रोमांच',
+  visualMindMap: 'विज़ुअल माइंड मैप', dayWiseJourney: 'दिन-प्रतिदिन यात्रा',
+  estimatedBudget: 'अनुमानित बजट', accommodation: 'आवास',
+  foodDining: 'भोजन और खान-पान', localTransport: 'स्थानीय परिवहन',
+  miscellaneous: 'विविध', achievements: 'उपलब्धियां',
+  myExpeditions: 'मेरी यात्राएं', editProfile: 'प्रोफ़ाइल संपादित करें',
 );
 
 const _fr = AppStrings(
@@ -117,6 +156,17 @@ const _fr = AppStrings(
   budget: 'Budget', interests: 'Intérêts',
   generating: 'Génération...', pleaseWait: 'Veuillez patienter',
   success: 'Succès', error: 'Erreur', tryAgain: 'Réessayer',
+  whereAndWhen: 'OÙ ET QUAND', adventureStarts: 'L\'aventure commence\npar une destination.',
+  durationDays: 'Durée (Jours)', budgetAndStyle: 'BUDGET ET STYLE',
+  howExperience: 'Comment voulez-vous\nexpérimenter le monde?', low: 'Bas', medium: 'Moyen', high: 'Haut',
+  moodAndInterests: 'HUMEUR ET INTÉRÊTS', soulDance: 'Qu\'est-ce qui fait\ndanser votre âme?',
+  otherInterests: 'Autres intérêts spécifiques', nextStep: 'Étape Suivante →',
+  generateMasterpiece: 'Générer le Chef-d\'œuvre', yourAdventure: 'Votre Aventure',
+  visualMindMap: 'Carte Mentale Visuelle', dayWiseJourney: 'Voyage au Jour le Jour',
+  estimatedBudget: 'Budget Estimé', accommodation: 'Hébergement',
+  foodDining: 'Restauration', localTransport: 'Transport Local',
+  miscellaneous: 'Divers', achievements: 'RÉALISATIONS',
+  myExpeditions: 'MES EXPÉDITIONS', editProfile: 'Modifier le Profil',
 );
 
 const _es = AppStrings(
@@ -142,6 +192,17 @@ const _es = AppStrings(
   budget: 'Presupuesto', interests: 'Intereses',
   generating: 'Generando...', pleaseWait: 'Por favor espere',
   success: 'Éxito', error: 'Error', tryAgain: 'Intentar de nuevo',
+  whereAndWhen: 'DÓNDE Y CUÁNDO', adventureStarts: 'La aventura comienza\ncon un destino.',
+  durationDays: 'Duración (Días)', budgetAndStyle: 'PRESUPUESTO Y ESTILO',
+  howExperience: '¿Cómo quieres\nexperimentar el mundo?', low: 'Bajo', medium: 'Medio', high: 'Alto',
+  moodAndInterests: 'Ánimo e Intereses', soulDance: '¿Qué hace que tu alma\nbaile de alegría?',
+  otherInterests: 'Otros intereses', nextStep: 'Siguiente Paso →',
+  generateMasterpiece: 'Generar Obra Maestra', yourAdventure: 'Tu Aventura',
+  visualMindMap: 'Mapa Mental Visual', dayWiseJourney: 'Viaje por Días',
+  estimatedBudget: 'Presupuesto Estimado', accommodation: 'Alojamiento',
+  foodDining: 'Comida', localTransport: 'Transporte Local',
+  miscellaneous: 'Misceláneos', achievements: 'LOGROS',
+  myExpeditions: 'MIS EXPEDICIONES', editProfile: 'Editar Perfil',
 );
 
 /// Language provider — persists across restarts
