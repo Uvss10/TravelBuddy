@@ -101,6 +101,33 @@ class TripProvider extends ChangeNotifier {
     if (result.isSuccess) {
       _currentTrip = result.data;
       _itineraryState = LoadState.success;
+      // ✅ FIX: Save immediately so itinerary survives app restart
+      saveCurrentTrip();
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = result.error;
+      _itineraryState = LoadState.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> editItinerary({required String modification}) async {
+    if (_currentTrip == null) return false;
+    _itineraryState = LoadState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _api.editItinerary(
+      currentTrip: _currentTrip!,
+      modification: modification,
+    );
+
+    if (result.isSuccess) {
+      _currentTrip = result.data;
+      _itineraryState = LoadState.success;
+      saveCurrentTrip();
       notifyListeners();
       return true;
     } else {

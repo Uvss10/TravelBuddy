@@ -89,7 +89,7 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
     provider.reset();
 
     final picker = ImagePicker();
-    final picked = await picker.pickMultiImage(imageQuality: 90);
+    final picked = await picker.pickMultiImage();
     if (picked.isEmpty || !context.mounted) return;
 
     final files = picked.map((x) => File(x.path)).toList();
@@ -283,7 +283,8 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
 
                         // START button
                         if (provider.stage == ReelStudioStage.idle ||
-                            provider.stage == ReelStudioStage.error)
+                            provider.stage == ReelStudioStage.error ||
+                            provider.stage == ReelStudioStage.done)
                           _StartButton(onTap: () => _startFlow(context)),
 
                         // Resume button (if draft exists)
@@ -291,7 +292,10 @@ class _ReelStudioScreenState extends State<ReelStudioScreen> with TickerProvider
                             provider.stage != ReelStudioStage.error &&
                             provider.stage != ReelStudioStage.uploading &&
                             provider.stage != ReelStudioStage.analyzing)
-                          _ResumeButton(stage: provider.stage),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: _ResumeButton(stage: provider.stage),
+                          ),
 
                         SizedBox(height: widget.isTab ? 116 : 24),
                       ],

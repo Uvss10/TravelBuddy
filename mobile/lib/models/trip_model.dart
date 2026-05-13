@@ -179,6 +179,7 @@ class TripModel extends Equatable {
     'story_narration': storyNarration,
     'captions': captions,
     'hashtags': hashtags,
+    'selected_image_paths': selectedImagePaths,
     'created_at': createdAt.toIso8601String(),
     'start_date': startDate?.toIso8601String(),
     'end_date': endDate?.toIso8601String(),
@@ -189,25 +190,33 @@ class TripModel extends Equatable {
   };
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
+    // Handle both:
+    // - Local SharedPreferences format: story_title, story_narration, itinerary_output
+    // - Supabase cloud format:          title, narration, (no itinerary field)
     return TripModel(
-      id: json['id'] ?? '',
+      // Supabase returns int id; local uses timestamp string
+      id: (json['id'] ?? '').toString(),
       destination: json['destination'] ?? '',
       country: json['country'],
       days: json['days'] ?? 0,
       budget: json['budget'] ?? '',
       interests: List<String>.from(json['interests'] ?? []),
       itineraryOutput: json['itinerary_output'],
-      storyTitle: json['story_title'],
-      storyNarration: json['story_narration'],
+      // ✅ FIX: Accept both key names — local vs cloud
+      storyTitle:     json['story_title']     ?? json['title'],
+      storyNarration: json['story_narration'] ?? json['narration'],
       captions: List<String>.from(json['captions'] ?? []),
       hashtags: List<String>.from(json['hashtags'] ?? []),
-      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
-      startDate: json['start_date'] != null ? DateTime.parse(json['start_date']) : null,
-      endDate: json['end_date'] != null ? DateTime.parse(json['end_date']) : null,
+      selectedImagePaths: List<String>.from(json['selected_image_paths'] ?? []),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      startDate: json['start_date'] != null ? DateTime.tryParse(json['start_date']) : null,
+      endDate:   json['end_date']   != null ? DateTime.tryParse(json['end_date'])   : null,
       isFavorite: json['is_favorite'] ?? false,
-      latitude: (json['latitude'] as num?)?.toDouble(),
+      latitude:  (json['latitude']  as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      videoUrl: json['video_url'],
+      videoUrl:  json['video_url'],
     );
   }
 

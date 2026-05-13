@@ -159,6 +159,13 @@ def _render_cinematic(
     
     ffmpeg_bin = _find_ffmpeg()
     if ffmpeg_bin:
+        # ── Professional After Effects (FFmpeg Filters) ───────────────
+        # 1. unsharp: Subtle sharpening for crispness
+        # 2. eq: Slight saturation and contrast bump for punchy colors
+        # 3. vignette: Smooth cinematic corner darkening
+        # 4. noise: Subtle organic film grain
+        vf_chain = "unsharp=5:5:0.5:3:3:0.0,eq=saturation=1.1:contrast=1.05,vignette=PI/4,noise=alls=2:allf=t+u"
+        
         cmd = [
             ffmpeg_bin, "-y",
             "-f", "rawvideo",
@@ -168,7 +175,7 @@ def _render_cinematic(
             "-r", str(fps),
             "-i", "-",
             "-an",
-            # We use fast preset for rapid rendering
+            "-vf", vf_chain,
             "-vcodec", "libx264", "-preset", "fast",
             "-pix_fmt", "yuv420p",
             tmp_silent
@@ -225,9 +232,15 @@ def _render_cinematic(
                     raw = cv2.filter2D(raw, -1, kernel)
 
                 # ── FIX: Do NOT force-normalize exposure (causes blown-out faces).
-                # Only apply gentle CLAHE per-channel to lift local contrast without
-                # shifting overall brightness or skin tones.
-                photo_cache[p] = _gentle_enhance(raw)
+                # Only apply gentle CLAHE per-channel to lift local contrast if
+                # the photo actually requires it (contrast < 40).
+                gray = cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY)
+                contrast = gray.std()
+                if contrast < 40.0:
+                    print(f"[Cinematic] Photo {Path(p).name} has low contrast ({contrast:.1f}). Enhancing...")
+                    photo_cache[p] = _gentle_enhance(raw)
+                else:
+                    photo_cache[p] = raw
 
         # ── Pre-build keyframes ────────────────────────────────────────────────
         keyframes = {
@@ -266,7 +279,8 @@ def _render_cinematic(
                 else:
                     frame_out = frame_a
 
-                frame_out = apply_grade(frame_out, theme.color_grade)
+                # Removed universal apply_grade to keep images pure and prevent yellowish/dark-bright artifacts
+                # frame_out = apply_grade(frame_out, theme.color_grade)
 
                 if slot.caption:
                     frame_out = render_caption(

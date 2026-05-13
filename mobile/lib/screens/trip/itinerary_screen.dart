@@ -116,16 +116,19 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Future<void> _applyTweak() async {
     if (_tweakController.text.trim().isEmpty) return;
     setState(() => _isTweaking = true);
-    // In a real app, this would call the API. For now, mocking simulation.
-    await Future.delayed(const Duration(seconds: 2));
+    
+    final success = await context.read<TripProvider>().editItinerary(
+      modification: _tweakController.text.trim(),
+    );
+
     if (mounted) {
       setState(() {
         _isTweaking = false;
-        _tweakController.clear();
+        if (success) _tweakController.clear();
       });
       Fluttertoast.showToast(
-        msg: 'Tweak applied! (Simulation)',
-        backgroundColor: AppTheme.success,
+        msg: success ? 'Itinerary successfully updated! ✨' : 'Failed to apply tweak. Try again.',
+        backgroundColor: success ? AppTheme.success : Colors.redAccent,
       );
     }
   }

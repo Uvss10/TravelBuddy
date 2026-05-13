@@ -51,7 +51,14 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => TripProvider()),
+        // TripProvider listens to AuthProvider so userId is always in sync
+        ChangeNotifierProxyProvider<AuthProvider, TripProvider>(
+          create: (_) => TripProvider(),
+          update: (_, auth, trip) {
+            trip!.setUserId(auth.user?.id);
+            return trip;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => VideoGenerationProvider()),
         ChangeNotifierProvider(create: (_) => ReelDraftProvider()),
       ],

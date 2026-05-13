@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../config/api_config.dart';
@@ -21,6 +22,7 @@ class ApiService {
   factory ApiService() => _instance;
 
   late Dio _dio;
+  Dio get dio => _dio;
 
   ApiService._internal() {
     _dio = _buildDio(ConfigService().backendUrl);
@@ -121,6 +123,42 @@ class ApiService {
       }
       final trip = TripModel.fromItineraryJson(data);
       return ApiResult.success(trip);
+    } on DioException catch (e) {
+      return ApiResult.failure(_mapError(e));
+    }
+  }
+
+  Future<ApiResult<TripModel>> editItinerary({
+    required TripModel currentTrip,
+    required String modification,
+  }) async {
+    if (!await hasConnection()) {
+      return const ApiResult.failure('No internet connection. Please check your network.');
+    }
+    try {
+      final resp = await _dio.post(
+        ApiConfig.itineraryEdit,
+        data: {
+          'existing_plan': jsonDecode(currentTrip.itineraryOutput ?? '{}'),
+          'modification': modification,
+          'interests': currentTrip.interests,
+        },
+        options: Options(
+          connectTimeout: const Duration(minutes: 10),
+          sendTimeout: const Duration(minutes: 10),
+          receiveTimeout: const Duration(minutes: 20),
+        ),
+      );
+      final data = resp.data;
+      if (data == null || data is! Map<String, dynamic>) {
+        return const ApiResult.failure('Server returned invalid edited itinerary format.');
+      }
+      final trip = TripModel.fromItineraryJson(data);
+      // Preserve existing ID, videoUrl, storyTitle etc.
+      final updatedTrip = currentTrip.copyWith(
+        itineraryOutput: trip.itineraryOutput,
+      );
+      return ApiResult.success(updatedTrip);
     } on DioException catch (e) {
       return ApiResult.failure(_mapError(e));
     }

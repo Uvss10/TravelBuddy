@@ -28,8 +28,8 @@ def get_version():
     """
 
     # ── EDIT ONLY THESE TWO LINES TO PUSH AN UPDATE ──────────────────────────
-    LATEST_VERSION = "2.0.0"
-    DRIVE_FILE_ID  = "YOUR_GOOGLE_DRIVE_FILE_ID_HERE"  # Paste your Drive file ID
+    LATEST_VERSION = 16
+    DRIVE_FILE_ID  = "1UEJ0c1mYZ_ZYnDHrwByXYTAViIEiRG0R"
     # ─────────────────────────────────────────────────────────────────────────
 
     RELEASE_NOTES  = (

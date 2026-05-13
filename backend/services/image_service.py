@@ -12,6 +12,7 @@ from models.vision.exposure_score import calculate_exposure_score
 from models.vision.contrast_score import calculate_contrast_score
 from models.vision.entropy_score import calculate_entropy_score
 from models.vision.face_detector import detect_faces
+from models.vision.composition_score import calculate_composition_score
 from models.vision.deduplication import remove_duplicates, compute_phash
 from models.vision.loader import load_image_for_analysis
 from backend import utils
@@ -27,7 +28,7 @@ def normalize(value, min_val, max_val):
     return (value - min_val) / (max_val - min_val)
 
 
-def _refine_image_for_reel(src_path: str, dest_path: str):
+def _refine_image_for_reel(src_path: str, dest_path: str, needs_contrast_boost: bool = False):
     """
     Refines top images to reel-ready vertical WebP.
     
@@ -88,15 +89,14 @@ def _refine_image_for_reel(src_path: str, dest_path: str):
             img = img.crop((left, 0, left + cropped_w, orig_h))
             refined = img.resize(TARGET_RES, Image.Resampling.LANCZOS)
 
-        # ── Subtle professional enhancement ───────────────────────────────────
-        # 1. Gentle unsharp mask (edge crispness without halos)
-        refined = refined.filter(ImageFilter.UnsharpMask(radius=1.0, percent=60, threshold=3))
-
-        # 2. Slight contrast boost (1.08 = barely noticeable but makes colors pop)
-        refined = ImageEnhance.Contrast(refined).enhance(1.08)
-
-        # 3. Slight color saturation (1.1 = cinematic warmth without going neon)
-        refined = ImageEnhance.Color(refined).enhance(1.1)
+        # ── Subtle professional enhancement ONLY if needed ───────────────────
+        if needs_contrast_boost:
+            # 1. Gentle unsharp mask (edge crispness without halos)
+            refined = refined.filter(ImageFilter.UnsharpMask(radius=1.0, percent=60, threshold=3))
+            # 2. Slight contrast boost
+            refined = ImageEnhance.Contrast(refined).enhance(1.08)
+            # 3. Slight color saturation
+            refined = ImageEnhance.Color(refined).enhance(1.1)
 
         # ── Save at highest quality ───────────────────────────────────────────
         refined.save(dest_path, "WEBP", quality=95, method=6, lossless=False)
@@ -122,6 +122,7 @@ def _analyze_single_image(path):
             "contrast":  float(calculate_contrast_score(image=img_array)),
             "entropy":   float(calculate_entropy_score(image=img_array)),
             "face":      float(detect_faces(image=img_array)),
+            "composition": float(calculate_composition_score(img_array)["composite"]),
         }
     except Exception:
         return None
@@ -149,6 +150,7 @@ def process_uploaded_images(image_paths):
     m_cont,  mx_cont  = get_range("contrast")
     m_ent,   mx_ent   = get_range("entropy")
     m_face,  mx_face  = get_range("face")
+    m_comp,  mx_comp  = get_range("composition")
 
     final_results = []
     for item in unique_data:
@@ -158,9 +160,10 @@ def process_uploaded_images(image_paths):
         n_ent   = normalize(item["entropy"],   m_ent,   mx_ent)
         n_cont  = normalize(item["contrast"],  m_cont,  mx_cont)
         n_exp   = normalize(item["exposure"],  m_exp,   mx_exp)
+        n_comp  = normalize(item["composition"], m_comp, mx_comp)
 
-        # Quality weights: Sharpness + Face presence matter most for travel memories
-        score   = (0.25*n_sharp + 0.2*n_blur + 0.25*n_face + 0.1*n_ent + 0.1*n_cont + 0.1*n_exp) * 100
+        # Quality weights: include Aesthetic/Composition scores
+        score   = (0.20*n_sharp + 0.15*n_blur + 0.20*n_comp + 0.15*n_face + 0.10*n_ent + 0.10*n_cont + 0.10*n_exp) * 100
         quality = "High" if score > 70 else ("Medium" if score > 40 else "Low")
 
         final_results.append({
@@ -181,7 +184,13 @@ def process_uploaded_images(image_paths):
     def _refine_task(img):
         f_name = f"refined_{os.path.basename(os.path.splitext(img['image_path'])[0])}.webp"
         dst    = os.path.join(SELECTED_DIR, f_name)
-        if _refine_image_for_reel(img["image_path"], dst):
+        
+        # Only boost contrast if it's in the lower 30% of the batch's contrast range
+        # OR if absolute contrast is low (e.g. < 40)
+        n_cont = normalize(img["metrics"]["contrast"], m_cont, mx_cont)
+        needs_boost = n_cont < 0.3 or img["metrics"]["contrast"] < 40.0
+
+        if _refine_image_for_reel(img["image_path"], dst, needs_contrast_boost=needs_boost):
             return img["image_path"], dst.replace("\\", "/")
         return None
 

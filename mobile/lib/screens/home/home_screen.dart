@@ -154,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final userName = auth.user?.name.split(' ').first ?? 'Traveller';
     final currentHour = DateTime.now().hour;
     final isNight = currentHour >= 18 || currentHour <= 5;
+    final s = context.watch<LanguageProvider>().strings;
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
@@ -205,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'WELCOME BACK, ${userName.toUpperCase()}',
+                              '${s.welcomeBack}, ${userName.toUpperCase()}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
@@ -268,8 +269,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   controller: _tabController,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    _buildDashboardTab(userName, trips).animate().fade(),
-                    _buildTripTab(trips).animate().fade(),
+                    _buildDashboardTab(userName, trips, s).animate().fade(),
+                    _buildTripTab(trips, s).animate().fade(),
                     const ReelStudioScreen(isTab: true).animate().fade(),
                     const ProfileScreen(),
                   ],
@@ -282,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildDashboardTab(String name, List<TripModel> trips) {
+  Widget _buildDashboardTab(String name, List<TripModel> trips, AppStrings s) {
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 10, 20, _contentBottomInset(context)),
       children: [
@@ -290,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: FeatureCard(icon: Icons.explore_rounded, title: 'Discovery', description: 'Find new spots', onTap: () => Navigator.pushNamed(context, AppRoutes.discovery, arguments: {'location': _currentCity, 'lat': _lat, 'lon': _lon}))),
+            Expanded(child: FeatureCard(icon: Icons.explore_rounded, title: s.globalExplorer, description: s.discoverSpots, onTap: () => Navigator.pushNamed(context, AppRoutes.discovery, arguments: {'location': _currentCity, 'lat': _lat, 'lon': _lon}))),
             const SizedBox(width: 12),
             Expanded(child: FeatureCard(icon: Icons.history_rounded, title: 'Recents', description: 'Last adventure', onTap: () => _tabController.animateTo(1))),
           ],
@@ -299,12 +300,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('MY REELS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
-            TextButton(onPressed: () => _tabController.animateTo(2), child: const Text('STUDIO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primary))),
+            Text(s.myReels.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
+            TextButton(onPressed: () => _tabController.animateTo(2), child: Text(s.reelStudio.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primary))),
           ],
         ),
         const SizedBox(height: 8),
-        _buildMyReelsSection(trips),
+        _buildMyReelsSection(trips, s),
         const SizedBox(height: 32),
         const Text('EXPEDITION TRACKER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppTheme.textHint)),
         const SizedBox(height: 12),
@@ -313,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTripTab(List<TripModel> trips) {
+  Widget _buildTripTab(List<TripModel> trips, AppStrings s) {
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 20, 20, _contentBottomInset(context)),
       children: [
@@ -332,7 +333,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Expanded(
               child: FeatureCard(
                 icon: Icons.electric_bolt_rounded,
-                title: 'Plan Expedition',
+                title: s.planExpedition,
                 description: 'Tailored AI Plan',
                 onTap: () => Navigator.pushNamed(context, AppRoutes.createTrip),
               ),
@@ -341,8 +342,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Expanded(
               child: FeatureCard(
                 icon: Icons.public_rounded,
-                title: 'Global Explorer',
-                description: 'Discover Spots',
+                title: s.globalExplorer,
+                description: s.discoverSpots,
                 onTap: () => Navigator.pushNamed(context, AppRoutes.discovery, arguments: {'location': _currentCity, 'lat': _lat, 'lon': _lon}),
               ),
             ),
@@ -429,7 +430,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMyReelsSection(List<TripModel> trips) {
+  Widget _buildMyReelsSection(List<TripModel> trips, AppStrings s) {
     final reels = trips.where((t) => t.videoUrl != null && t.videoUrl!.isNotEmpty).toList();
     if (reels.isEmpty) {
       return Container(
@@ -439,14 +440,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppTheme.borderLight),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.video_library_outlined, color: AppTheme.textHint, size: 28),
-              SizedBox(height: 8),
-              Text('No reels saved yet. Create one in Reel Studio!',
-                  style: TextStyle(color: AppTheme.textHint, fontSize: 12), textAlign: TextAlign.center),
+              const Icon(Icons.video_library_outlined, color: AppTheme.textHint, size: 28),
+              const SizedBox(height: 8),
+              Text(s.noReelsSaved,
+                  style: const TextStyle(color: AppTheme.textHint, fontSize: 12), textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -480,15 +481,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppTheme.primary.withAlpha(80), AppTheme.primary],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: const Icon(Icons.movie_creation_outlined, color: Colors.white54, size: 40),
-                    ),
+                    child: trip.selectedImagePaths.isNotEmpty
+                        ? Image.network(
+                            trip.selectedImagePaths.first,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [AppTheme.primary.withAlpha(80), AppTheme.primary],
+                                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                                ),
+                              ),
+                              child: const Icon(Icons.movie_creation_outlined, color: Colors.white54, size: 40),
+                            ),
+                          )
+                        : Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [AppTheme.primary.withAlpha(80), AppTheme.primary],
+                                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: const Icon(Icons.movie_creation_outlined, color: Colors.white54, size: 40),
+                          ),
                   ),
                   Positioned(
                     bottom: 0, left: 0, right: 0,

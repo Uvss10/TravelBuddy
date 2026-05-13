@@ -58,8 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
     //    and always sends the user back to the login screen on every launch.
     final auth = context.read<AuthProvider>();
 
-    // Show splash for minimum 2s while session is being restored in background
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Minimum splash time removed for instant startup
     if (!mounted) return;
 
     // Poll until _restore() finishes (usually <300ms after the 2s delay, max 4s safety)
@@ -77,7 +76,8 @@ class _SplashScreenState extends State<SplashScreen>
       final response = await dio.get(
         versionUrl,
         options: Options(
-          receiveTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 1),
+          sendTimeout: const Duration(seconds: 1),
           headers: {'bypass-tunnel-reminder': 'true', 'Bypass-Tunnel-Reminder': 'true'},
         ),
       );

@@ -1,6 +1,6 @@
 {
-    "latest_version": 5,
-    "backend_url": "http://10.249.251.50:8000",
-    "apk_url": "https://example.com/travelbuddy-v5.apk",
-    "update_message": "TravelBuddy v5 is here! Now with history sync, reels studio fixes, and global explorer enhancements. 🚀"
+    "latest_version": 16,
+    "backend_url": "http://10.28.227.234:8080",
+    "apk_url": "https://drive.google.com/uc?export=download&id=1UEJ0c1mYZ_ZYnDHrwByXYTAViIEiRG0R",
+    "update_message": "TravelBuddy v16 is here! Update now for the latest features."
 }

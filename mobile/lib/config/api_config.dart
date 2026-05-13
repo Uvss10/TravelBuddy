@@ -14,6 +14,7 @@ class ApiConfig {
   static const String health         = '/health';
   static const String versionCheck   = '/version';
   static const String itineraryGen   = '/itinerary/generate';
+  static const String itineraryEdit  = '/itinerary/edit';
   static const String imageUpload    = '/images/upload';
   static const String storyGenerate  = '/story/generate';
   static const String videoGenerate  = '/video/generate';

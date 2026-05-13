@@ -172,8 +172,11 @@ def upload_apk_to_drive(service) -> str:
     ).execute().get("files", [])
 
     for f in existing:
-        service.files().delete(fileId=f["id"]).execute()
-        print(f"   [DEL] Deleted old APK from Drive (id={f['id']})")
+        try:
+            service.files().delete(fileId=f["id"]).execute()
+            print(f"   [DEL] Deleted old APK from Drive (id={f['id']})")
+        except Exception as e:
+            print(f"   [WARN] Could not delete old APK (id={f['id']}) - ignoring.")
 
     # Upload new APK with progress reporting
     metadata = {"name": APK_FILENAME, "parents": [DRIVE_FOLDER]}
@@ -212,25 +215,40 @@ def upload_apk_to_drive(service) -> str:
 # STEP 5: Update version.json (the local config file)
 # ─────────────────────────────────────────────────────────────────────────────
 def update_version_json(new_build: int, apk_url: str):
-    log("Updating version.json…", "📝")
+    log("Updating version.json...", "[JSON]")
 
-    # Read backend_url from existing version.json if available
-    existing_url = "http://10.196.231.234:8000"
+    # Auto-detect current backend URL (same logic as startup.py)
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            current_ip = s.getsockname()[0]
+    except Exception:
+        current_ip = "127.0.0.1"
+
+    # Read existing backend_url from version.json if it exists, else use current IP
+    backend_url = f"http://{current_ip}:8080"
     if VERSION_JSON.exists():
         try:
             existing = json.loads(VERSION_JSON.read_text())
-            existing_url = existing.get("backend_url", existing_url)
+            stored   = existing.get("backend_url", "")
+            # Only keep stored URL if it has same subnet (same network)
+            if stored and not stored.endswith(":8000"):  # don't keep old port 8000 URLs
+                backend_url = stored
         except Exception:
             pass
 
+    # Always use fresh detected IP (most reliable)
+    backend_url = f"http://{current_ip}:8080"
+
     data = {
         "latest_version": new_build,
-        "backend_url":    existing_url,
+        "backend_url":    backend_url,
         "apk_url":        apk_url,
-        "update_message": f"TravelBuddy v{new_build} is here! Update now for the latest features. 🚀",
+        "update_message": f"TravelBuddy v{new_build} is here! Update now for the latest features.",
     }
     VERSION_JSON.write_text(json.dumps(data, indent=4))
-    ok(f"version.json updated with build={new_build}")
+    ok(f"version.json updated  build={new_build}  backend={backend_url}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
